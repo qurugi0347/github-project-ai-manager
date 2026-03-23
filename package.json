@@ -1,0 +1,19 @@
+{
+  "name": "github-project-ai-manager",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:backend": "yarn workspace @gpm/backend start:dev",
+    "dev:frontend": "yarn workspace @gpm/frontend dev",
+    "build:backend": "yarn workspace @gpm/backend build",
+    "build:frontend": "yarn workspace @gpm/frontend build",
+    "build": "yarn build:backend && yarn build:frontend",
+    "start": "yarn workspace @gpm/backend start:prod"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "yarn@3.8.7"
+}
