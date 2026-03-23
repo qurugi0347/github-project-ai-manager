@@ -17,19 +17,30 @@ GPM(GitHub Project Manager) CLI는 Claude Code 환경에서 bash를 통해 GitHu
 
 #### `gpm init`
 
-GitHub Project 연결을 위한 대화형 초기 설정.
+현재 git repo에 대한 GitHub Project 연결을 설정한다.
 
-- owner, repo, project number를 대화형으로 입력받는다.
-- `~/.gpm/config.json` 파일을 생성한다.
-- 이미 설정이 존재하면 덮어쓸지 확인한다.
+- GitHub Project URL을 입력받아 owner와 project number를 추출한다.
+- `gh auth token` 명령어로 GitHub CLI 인증 상태를 확인한다. 인증이 없으면 `gh auth login` 안내 메시지를 출력한다.
+- `git remote -v`에서 repo 정보(owner, repo name)를 자동 추출한다.
+- 현재 디렉토리에 `.gpmrc` 파일을 생성한다.
+- 이미 `.gpmrc`가 존재하면 덮어쓸지 확인한다.
 
 ```bash
 $ gpm init
-? GitHub Owner (org or user): my-org
-? Repository name: my-repo
-? Project number: 1
-✓ Configuration saved to ~/.gpm/config.json
-✓ Connected to project: my-org/my-repo#1
+? GitHub Project URL: https://github.com/users/my-org/projects/1
+✓ Detected repo: my-org/my-repo (from git remote)
+✓ Authenticated as @username (via gh auth)
+✓ .gpmrc created in /path/to/repo
+```
+
+생성되는 `.gpmrc` 파일 예시:
+
+```json
+{
+  "owner": "my-org",
+  "repo": "my-repo",
+  "projectNumber": 1
+}
 ```
 
 #### `gpm auth`
@@ -228,7 +239,7 @@ Conflicts: 0
 
 #### `gpm server`
 
-NestJS 로컬 서버(API + React 정적 파일)를 시작한다.
+NestJS 로컬 서버(API + React 정적 파일)를 포그라운드에서 시작한다.
 
 | 옵션 | 설명 | 기본값 |
 |------|------|--------|
@@ -240,13 +251,43 @@ $ gpm server --port 8080 --no-open
 ✓ Server started at http://localhost:8080
 ```
 
+#### `gpm server --daemon`
+
+서버를 백그라운드 데몬으로 실행한다.
+
+- 프로세스를 백그라운드로 분리하여 터미널을 반환한다.
+- PID 파일을 생성하여 프로세스를 추적한다.
+- 로그는 `~/.gpm/server.log`에 기록한다.
+
+```bash
+$ gpm server --daemon --port 3000
+✓ Server started as daemon (PID: 12345)
+✓ Listening at http://localhost:3000
+✓ Log: ~/.gpm/server.log
+```
+
 #### `gpm server stop`
 
-실행 중인 서버를 중지한다.
+실행 중인 서버(포그라운드 또는 데몬)를 중지한다.
 
 ```bash
 $ gpm server stop
-✓ Server stopped
+✓ Server stopped (PID: 12345)
+```
+
+#### `gpm server status`
+
+서버의 실행 상태를 확인한다.
+
+- 서버 실행 여부, PID, 포트, 가동 시간을 출력한다.
+- 등록된 프로젝트 수를 표시한다.
+
+```bash
+$ gpm server status
+✓ Server is running (PID: 12345)
+  Port: 3000
+  Uptime: 2h 15m
+  Projects: 3
 ```
 
 ## CLI 출력 형식
@@ -293,6 +334,33 @@ GPM CLI는 두 가지 모드로 동작한다.
 - `gpm server` 명령어 실행 시에만 HTTP 리스너를 시작
 - React 웹 UI 정적 파일 서빙 (ServeStaticModule)
 - 브라우저에서 칸반 보드 등 웹 UI 사용 가능
+
+## .gpmrc 기반 요청
+
+CLI는 현재 디렉토리의 `.gpmrc` 파일을 읽어 모든 API 요청에 프로젝트 식별 헤더를 포함한다. 단일 GPM 서버가 여러 git repo의 GitHub Project를 관리하므로, 각 요청에서 어떤 프로젝트를 대상으로 하는지 특정해야 한다.
+
+### 헤더 전달
+
+| 헤더 | 값 (`.gpmrc` 필드) | 설명 |
+|------|---------------------|------|
+| `X-GPM-Owner` | `owner` | GitHub Owner (org 또는 user) |
+| `X-GPM-Project-Number` | `projectNumber` | GitHub Project V2 번호 |
+
+### 동작 방식
+
+1. CLI 명령어 실행 시 현재 디렉토리에서 `.gpmrc` 파일을 탐색한다.
+2. `.gpmrc`의 `owner`와 `projectNumber` 값을 HTTP 헤더로 변환하여 서버에 전달한다.
+3. 서버는 수신한 헤더를 기반으로 해당 프로젝트의 데이터를 조회/변경한다.
+
+### .gpmrc가 없는 경우
+
+`.gpmrc` 파일이 현재 디렉토리에 존재하지 않으면 CLI는 에러를 출력하고 명령어를 실행하지 않는다.
+
+```bash
+$ gpm task list
+✗ .gpmrc not found in current directory.
+  Run "gpm init" to connect this repository to a GitHub Project.
+```
 
 ## Claude Code에서의 사용 예시
 

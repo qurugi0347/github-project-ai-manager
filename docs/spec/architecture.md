@@ -2,6 +2,27 @@
 
 ## 1. 시스템 구성도
 
+### 멀티 프로젝트 구조
+
+    ┌───────────────────┐
+    │  Repo A (.gpmrc)  │──┐
+    └───────────────────┘  │
+    ┌───────────────────┐  │    ┌──────────────────┐     ┌────────────────────┐
+    │  Repo B (.gpmrc)  │──┼───▶│   gpm server     │────▶│  ~/.gpm/data.db    │
+    └───────────────────┘  │    │  localhost:3000   │     │  (단일 SQLite)      │
+    ┌───────────────────┐  │    └────────┬─────────┘     └────────────────────┘
+    │  Repo C (.gpmrc)  │──┘             │
+    └───────────────────┘          ┌─────▼───────┐
+                                   │  GitHub API │
+                                   │  (GraphQL)  │
+                                   └─────────────┘
+
+- 하나의 `gpm server`가 여러 Git Repository의 GitHub Project를 관리
+- 각 Repo 루트에 `.gpmrc` 파일이 존재하며, owner/projectNumber 등 프로젝트 식별 정보를 포함
+- CLI는 현재 디렉토리의 `.gpmrc`를 읽어 HTTP 헤더로 서버에 전달
+- 서버는 `project_id`로 모든 데이터를 스코핑하여 프로젝트 간 데이터 격리 보장
+- 단일 SQLite 파일(`~/.gpm/data.db`)에 모든 프로젝트 데이터를 저장
+
 ### 개발 환경 (Development)
 
     ┌──────────────────┐  proxy /api/*  ┌──────────────┐     ┌─────────────┐
@@ -59,6 +80,35 @@
 - **API → GitHub**: Octokit GraphQL 클라이언트로 GitHub Project V2 API 호출
 - **동기화**: SyncService가 주기적으로 GitHub ↔ SQLite 간 폴링 동기화
 
+#### ProjectContext 흐름 (멀티 프로젝트)
+
+    ┌─────────────┐       X-GPM-Owner, X-GPM-Project-Number
+    │  CLI (gpm)  │──────────────────────────────────────────▶ NestJS Server
+    │  .gpmrc 읽기 │       HTTP 헤더로 전달
+    └─────────────┘
+                                    │
+                                    ▼
+                          ┌────────────────────────┐
+                          │ ProjectContextMiddleware│
+                          │ 헤더에서 owner,          │
+                          │ projectNumber 추출       │
+                          │ → projects 테이블 조회    │
+                          │ → request에 project 주입  │
+                          └──────────┬─────────────┘
+                                    │
+                                    ▼
+                          ┌────────────────────────┐
+                          │   Controller / Service  │
+                          │ request.project로       │
+                          │ project_id 스코핑 쿼리   │
+                          └────────────────────────┘
+
+1. CLI가 현재 디렉토리의 `.gpmrc`에서 `owner`, `projectNumber`를 읽음
+2. HTTP 요청 시 `X-GPM-Owner`, `X-GPM-Project-Number` 헤더로 서버에 전달
+3. `ProjectContextMiddleware`가 헤더를 파싱하여 `projects` 테이블에서 해당 project를 resolve
+4. resolve된 project 정보를 `request.project`에 주입
+5. 모든 Service는 `project_id`로 스코핑된 쿼리를 실행하여 데이터 격리
+
 ## 2. 레이어 구조
 
 ### CLI Layer
@@ -107,6 +157,11 @@
 
     AppModule
     ├── ServeStaticModule      # React 빌드 결과물 정적 서빙 (prod)
+    ├── ProjectModule          # 멀티 프로젝트 관리 (Global)
+    │   ├── ProjectController  # /api/projects
+    │   ├── ProjectService     # project CRUD, resolve by owner+projectNumber
+    │   ├── ProjectEntity
+    │   └── ProjectContextMiddleware  # 헤더 → project resolve → request 주입
     ├── TaskModule             # 태스크 CRUD, 상태 관리
     │   ├── TaskController     # /api/tasks
     │   ├── TaskService
@@ -120,24 +175,22 @@
     │   ├── LabelController    # /api/labels
     │   ├── LabelService
     │   └── LabelEntity
-    ├── MilestoneModule        # 마일스톤 관리
-    │   ├── MilestoneController # /api/milestones
-    │   ├── MilestoneService
-    │   └── MilestoneEntity
-    └── ProjectModule          # GitHub Project 설정
-        ├── ProjectController  # /api/project
-        ├── ProjectService
-        └── ProjectEntity
+    └── MilestoneModule        # 마일스톤 관리
+        ├── MilestoneController # /api/milestones
+        ├── MilestoneService
+        └── MilestoneEntity
 
 ### 모듈 간 의존성
 
 | 모듈 | 의존 모듈 | 설명 |
 |------|-----------|------|
+| ProjectModule | 없음 | Global 모듈. 멀티 프로젝트 관리, ProjectContextMiddleware 제공 |
 | TaskModule | ProjectModule, LabelModule, MilestoneModule | 태스크는 프로젝트에 소속, 라벨/마일스톤 참조 |
 | SyncModule | TaskModule, LabelModule, MilestoneModule, ProjectModule | 전체 데이터 동기화 수행 |
 | LabelModule | ProjectModule | 라벨은 프로젝트 범위 |
 | MilestoneModule | ProjectModule | 마일스톤은 프로젝트 범위 |
-| ProjectModule | 없음 | 최하위 의존성 |
+
+> **ProjectModule**은 `@Global()` 모듈로 등록되어 모든 모듈에서 `ProjectService`와 미들웨어를 사용할 수 있습니다. `ProjectContextMiddleware`는 `AppModule`의 `configure()`에서 모든 `/api/*` 경로에 적용됩니다.
 
 ## 4. 인증 흐름
 
@@ -217,7 +270,8 @@
     │   │       ├── project.controller.ts
     │   │       ├── project.service.ts
     │   │       ├── project.entity.ts
-    │   │       └── project.module.ts
+    │   │       ├── project.module.ts
+    │   │       └── project-context.middleware.ts  # 헤더에서 project resolve
     │   ├── app.module.ts              # AppModule (ServeStaticModule 포함)
     │   └── main.ts                    # NestJS 서버 부트스트랩
     └── web/                           # React 프론트엔드
@@ -249,9 +303,11 @@
 
 | 파일 | 경로 | 용도 |
 |------|------|------|
-| 사용자 설정 | `~/.gpm/config.json` | GitHub 토큰, 프로젝트 설정 |
-| 로컬 DB | `~/.gpm/data.db` | SQLite 데이터베이스 |
+| 사용자 설정 | `~/.gpm/config.json` | GitHub 토큰, 글로벌 설정 |
+| 로컬 DB | `~/.gpm/data.db` | SQLite 데이터베이스 (모든 프로젝트 데이터) |
+| 서버 PID | `~/.gpm/server.pid` | 데몬 모드 서버 프로세스 ID |
 | 로그 | `~/.gpm/logs/` | 서버 및 동기화 로그 |
+| 프로젝트 설정 | `<repo>/.gpmrc` | 프로젝트별 owner, projectNumber 등 |
 
 ## 6. 배포 구조
 
@@ -284,6 +340,19 @@ gpm task list
 gpm task create "새 기능 구현"
 ```
 
+### 서버 상주 방식
+
+| 명령어 | 동작 | 설명 |
+|--------|------|------|
+| `gpm server` | 포그라운드 실행 | 터미널에서 직접 실행. Ctrl+C로 종료 |
+| `gpm server --daemon` | 백그라운드 실행 | 데몬으로 실행. PID를 `~/.gpm/server.pid`에 기록 |
+| `gpm server stop` | 서버 종료 | `~/.gpm/server.pid`를 읽어 프로세스 종료 |
+
+- **포그라운드**: `gpm server` — 로그가 터미널에 직접 출력됨
+- **백그라운드 (데몬)**: `gpm server --daemon` — 프로세스를 detach하고 PID를 `~/.gpm/server.pid`에 저장. 로그는 `~/.gpm/logs/`에 기록
+- **종료**: `gpm server stop` — PID 파일에서 프로세스 ID를 읽어 graceful shutdown
+- **서버 미실행 시 CLI standalone fallback**: 서버가 실행 중이지 않을 때 CLI 명령어를 실행하면, NestJS Standalone Mode로 DI 컨테이너만 부팅하여 Service를 직접 호출 (HTTP 서버 없이 동작)
+
 ### 서버 실행 구조
 
 - `gpm server` 실행 시 NestJS 서버가 localhost에서 시작
@@ -291,7 +360,6 @@ gpm task create "새 기능 구현"
 - SPA fallback: 모든 비-API 경로를 `index.html`로 라우팅
 - API 엔드포인트: `http://localhost:3000/api/*`
 - 웹 UI: `http://localhost:3000/`
-- CLI 명령어 실행 시 서버가 꺼져 있으면 백그라운드로 자동 시작
 
 ### 개발 서버 실행 (개발자용)
 

@@ -9,7 +9,7 @@ GitHub Project V2 (SSOT)
         ↑↓
    GraphQL API
         ↑↓
-   동기화 엔진
+   동기화 엔진 (project 단위)
         ↑↓
   SQLite (로컬 캐시)
         ↑↓
@@ -19,6 +19,14 @@ GitHub Project V2 (SSOT)
 - **Pull**: GitHub → 로컬. GitHub의 최신 상태를 로컬 DB에 반영한다.
 - **Push**: 로컬 → GitHub. 로컬에서 변경된 항목을 GitHub에 반영한다.
 - **양방향**: Pull 후 Push를 순차 수행하며, 충돌을 감지하고 해결한다.
+
+### 프로젝트 스코핑
+
+동기화는 **project 단위**로 수행된다. 단일 GPM 서버가 여러 git repo의 GitHub Project를 관리하므로, 모든 동기화 작업은 특정 프로젝트에 스코핑된다.
+
+- **CLI에서 `gpm sync` 실행 시**: 현재 디렉토리의 `.gpmrc` 파일에서 `owner`와 `projectNumber`를 읽어 대상 프로젝트를 특정한다. `.gpmrc`가 없으면 에러를 출력한다.
+- **서버 자동 폴링**: 서버에 등록된 각 프로젝트별로 독립적인 폴링 스케줄이 실행된다. 한 프로젝트의 동기화 실패가 다른 프로젝트에 영향을 주지 않는다.
+- **`sync_log` 스코핑**: `sync_log` 테이블의 각 레코드는 `project_id`로 스코핑되어, 프로젝트별로 동기화 이력을 독립적으로 추적한다.
 
 ## Pull 동기화 (GitHub → Local)
 
@@ -302,6 +310,7 @@ $ gpm sync
 ```sql
 CREATE TABLE sync_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,       -- 대상 프로젝트 식별자
   sync_type TEXT NOT NULL,           -- 'pull' | 'push' | 'full'
   started_at TEXT NOT NULL,
   completed_at TEXT,
