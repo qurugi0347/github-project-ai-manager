@@ -36,6 +36,21 @@
 - API: `http://localhost:3000/api/*`
 - Web UI: `http://localhost:3000/`
 
+### CLI 독립 실행 모드
+
+    ┌─────────────┐     NestJS Standalone     ┌─────────────┐
+    │  CLI (gpm)  │────(DI Container만)──────▶│   SQLite    │
+    └─────────────┘     Service 직접 호출      │   (Local)   │
+                              │               └─────────────┘
+                        ┌─────▼───────┐
+                        │  GitHub API │
+                        │  (GraphQL)  │
+                        └─────────────┘
+
+- HTTP 서버 없이 NestJS DI 컨테이너만 부팅 (~100ms)
+- CLI에서 TaskService, SyncService 등을 직접 호출
+- `gpm server`만 HTTP 리스너를 시작
+
 ### 데이터 흐름
 
 - **CLI → API**: CLI 명령어 실행 시 localhost NestJS API에 HTTP 요청
@@ -49,8 +64,9 @@
 ### CLI Layer
 
 - **기술**: Commander.js + TypeScript
-- **역할**: 사용자 명령어 파싱 및 NestJS API 호출
-- **특징**: NestJS 서버가 실행 중이지 않으면 자동 시작 후 요청
+- **역할**: 사용자 명령어 파싱 및 NestJS Standalone Mode로 Service 직접 호출
+- **특징**: HTTP 서버 없이 NestFactory.createApplicationContext로 DI 컨테이너만 부팅하여 Service 사용. 서버 시작 불필요.
+- **의존성**: @gpm/backend (workspace dependency)
 - **위치**: `src/cli/`
 
 ### API Layer

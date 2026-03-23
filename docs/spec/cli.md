@@ -277,6 +277,23 @@ $ gpm task list --status "Todo" --json
 }
 ```
 
+## CLI 실행 모드
+
+GPM CLI는 두 가지 모드로 동작한다.
+
+### Standalone 모드 (기본)
+
+- NestJS의 `createApplicationContext`로 DI 컨테이너만 부팅하여 Service를 직접 호출
+- HTTP 서버 시작 없이 SQLite와 GitHub API에 직접 접근
+- 부팅 시간 ~100ms로 빠른 응답
+- `gpm task list`, `gpm sync` 등 대부분의 CLI 명령어가 이 모드로 동작
+
+### Server 모드
+
+- `gpm server` 명령어 실행 시에만 HTTP 리스너를 시작
+- React 웹 UI 정적 파일 서빙 (ServeStaticModule)
+- 브라우저에서 칸반 보드 등 웹 UI 사용 가능
+
 ## Claude Code에서의 사용 예시
 
 ### 예시 1: 태스크 생성 후 상태 관리
