@@ -1,7 +1,7 @@
 import { loadGpmrc, getProjectHeaders } from './gpmrc';
 import http from 'http';
 
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = `http://localhost:${process.env.GPM_PORT || '6170'}/api`;
 
 interface RequestOptions {
   method?: string;

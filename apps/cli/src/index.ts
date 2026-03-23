@@ -188,7 +188,7 @@ syncCmd
 program
   .command('server')
   .description('Start the web server')
-  .option('--port <port>', 'Server port', '3000')
+  .option('--port <port>', 'Server port', '6170')
   .option('--no-open', 'Do not open browser')
   .action(() => {
     console.log('gpm server - not yet implemented');
