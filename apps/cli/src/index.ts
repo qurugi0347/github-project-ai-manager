@@ -1,4 +1,6 @@
 import { Command } from 'commander';
+import { getAppContext, closeAppContext } from './utils/bootstrap';
+import { AppService } from '@gpm/backend/dist/app.service';
 
 const program = new Command();
 
@@ -6,6 +8,17 @@ program
   .name('gpm')
   .description('GitHub Project Manager - CLI for managing GitHub Projects')
   .version('0.0.1');
+
+program
+  .command('health')
+  .description('Check backend service health (standalone mode)')
+  .action(async () => {
+    const app = await getAppContext();
+    const appService = app.get(AppService);
+    const result = appService.getHealth();
+    console.log(JSON.stringify(result, null, 2));
+    await closeAppContext();
+  });
 
 program
   .command('init')
