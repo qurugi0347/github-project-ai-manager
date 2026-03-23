@@ -540,6 +540,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@gpm/cli@workspace:apps/cli":
+  version: 0.0.0-use.local
+  resolution: "@gpm/cli@workspace:apps/cli"
+  dependencies:
+    "@types/node": ^22.0.0
+    chalk: ^5.4.0
+    commander: ^13.0.0
+    typescript: ^5.7.0
+  bin:
+    gpm: ./bin/gpm.js
+  languageName: unknown
+  linkType: soft
+
 "@gpm/frontend@workspace:apps/frontend":
   version: 0.0.0-use.local
   resolution: "@gpm/frontend@workspace:apps/frontend"
@@ -2261,6 +2274,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"chalk@npm:^5.4.0":
+  version: 5.6.2
+  resolution: "chalk@npm:5.6.2"
+  checksum: 4ee2d47a626d79ca27cb5299ecdcce840ef5755e287412536522344db0fc51ca0f6d6433202332c29e2288c6a90a2b31f3bd626bc8c14743b6b6ee28abd3b796
+  languageName: node
+  linkType: hard
+
 "chardet@npm:^2.1.1":
   version: 2.1.1
   resolution: "chardet@npm:2.1.1"
@@ -2372,6 +2392,13 @@ __metadata:
   version: 4.1.1
   resolution: "commander@npm:4.1.1"
   checksum: d7b9913ff92cae20cb577a4ac6fcc121bd6223319e54a40f51a14740a681ad5c574fd29a57da478a5f234a6fa6c52cbf0b7c641353e03c648b1ae85ba670b977
+  languageName: node
+  linkType: hard
+
+"commander@npm:^13.0.0":
+  version: 13.1.0
+  resolution: "commander@npm:13.1.0"
+  checksum: 8ca2fcb33caf2aa06fba3722d7a9440921331d54019dabf906f3603313e7bf334b009b862257b44083ff65d5a3ab19e83ad73af282bd5319f01dc228bdf87ef0
   languageName: node
   linkType: hard
 

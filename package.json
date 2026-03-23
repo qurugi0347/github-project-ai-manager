@@ -9,7 +9,9 @@
     "dev:frontend": "yarn workspace @gpm/frontend dev",
     "build:backend": "yarn workspace @gpm/backend build",
     "build:frontend": "yarn workspace @gpm/frontend build",
-    "build": "yarn build:backend && yarn build:frontend",
+    "build:cli": "yarn workspace @gpm/cli build",
+    "build": "yarn build:cli && yarn build:backend && yarn build:frontend",
+    "gpm": "yarn workspace @gpm/cli start",
     "start": "yarn workspace @gpm/backend start:prod"
   },
   "engines": {
