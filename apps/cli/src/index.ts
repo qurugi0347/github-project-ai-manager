@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { getAppContext, closeAppContext } from './utils/bootstrap';
 import { AppService } from '@gpm/backend/dist/app.service';
+import { runInit } from './commands/init';
 
 const program = new Command();
 
@@ -23,8 +24,8 @@ program
 program
   .command('init')
   .description('Initialize GPM with a GitHub Project')
-  .action(() => {
-    console.log('gpm init - not yet implemented');
+  .action(async () => {
+    await runInit();
   });
 
 program
