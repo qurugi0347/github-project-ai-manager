@@ -172,8 +172,16 @@ const syncCmd = program
   .option('--pull', 'Pull from GitHub only')
   .option('--push', 'Push to GitHub only')
   .option('--force', 'Force sync')
-  .action(() => {
-    console.log('gpm sync - not yet implemented');
+  .action(async (options) => {
+    try {
+      console.log('Syncing with GitHub Project...');
+      const result = await apiRequest<any>('/sync/pull', { method: 'POST' });
+      console.log(`✓ Sync completed: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
+      console.log(`  Total items from GitHub: ${result.pulled}`);
+    } catch (err) {
+      console.error(`✗ ${(err as Error).message}`);
+      process.exit(1);
+    }
   });
 
 syncCmd
