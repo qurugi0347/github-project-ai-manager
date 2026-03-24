@@ -3,6 +3,7 @@ import { createInterface } from 'readline';
 import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { GpmConfig } from '../types';
+import { getAppContext, closeAppContext } from '../utils/bootstrap';
 
 export function validateGhAuth(): string {
   try {
@@ -154,7 +155,24 @@ export async function runInit(): Promise<void> {
 
   writeFileSync(gpmrcPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
-  // 6. 성공 메시지
+  // 6. 서버 DB에 프로젝트 등록 (standalone mode)
+  console.log('프로젝트 등록 중...');
+  try {
+    const app = await getAppContext();
+    const { ProjectService } = await import('@gpm/backend/dist/modules/project/project.service');
+    const projectService = app.get(ProjectService);
+    await projectService.findOrCreate(config.owner, config.projectNumber, {
+      ownerType: config.ownerType,
+      repo: config.repo,
+      projectUrl: config.projectUrl,
+    });
+    await closeAppContext();
+    console.log('✓ 프로젝트 등록 완료');
+  } catch (err) {
+    console.log(`⚠ 프로젝트 자동 등록 실패 (서버 사용 시 자동 등록됩니다): ${(err as Error).message}`);
+  }
+
+  // 7. 성공 메시지
   console.log(`✓ .gpmrc created`);
   console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
   if (repoInfo) {
