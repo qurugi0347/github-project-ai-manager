@@ -14,7 +14,14 @@ export class ProjectContextMiddleware implements NestMiddleware {
       return next();
     }
 
-    const project = await this.projectService.findOrCreate(owner, projectNumber);
+    const project = await this.projectService.findByOwnerAndNumber(owner, projectNumber);
+    if (!project) {
+      res.status(404).json({
+        statusCode: 404,
+        message: `Project not found: ${owner}/projects/${projectNumber}. Run "gpm init" first.`,
+      });
+      return;
+    }
     (req as any).project = project;
     next();
   }
