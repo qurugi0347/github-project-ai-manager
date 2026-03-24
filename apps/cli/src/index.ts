@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { getAppContext, closeAppContext } from './utils/bootstrap';
 import { AppService } from '@gpm/backend/dist/app.service';
 import { runInit } from './commands/init';
+import { runServer } from './commands/server';
 import { apiRequest } from './utils/api-client';
 
 const program = new Command();
@@ -192,11 +193,11 @@ syncCmd
 // --- Server ---
 program
   .command('server')
-  .description('Start the web server')
+  .description('Start the web server (API + Web UI)')
   .option('--port <port>', 'Server port', '6170')
   .option('--no-open', 'Do not open browser')
-  .action(() => {
-    console.log('gpm server - not yet implemented');
+  .action(async (options) => {
+    await runServer(options);
   });
 
 // --- Label ---
