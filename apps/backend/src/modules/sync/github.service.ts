@@ -46,6 +46,26 @@ export class GitHubService {
     });
   }
 
+  async getProjectId(
+    owner: string,
+    ownerType: string,
+    projectNumber: number,
+  ): Promise<string> {
+    const gql = this.getGraphqlClient();
+    const ownerField = ownerType === 'organization' ? 'organization' : 'user';
+
+    const query = `
+      query GetProjectId($owner: String!, $number: Int!) {
+        ${ownerField}(login: $owner) {
+          projectV2(number: $number) { id }
+        }
+      }
+    `;
+
+    const result: any = await gql(query, { owner, number: projectNumber });
+    return result[ownerField].projectV2.id;
+  }
+
   async getProjectItems(
     owner: string,
     ownerType: string,

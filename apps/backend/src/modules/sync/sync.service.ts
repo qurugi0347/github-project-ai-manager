@@ -5,6 +5,7 @@ import { Task } from '../task/task.entity';
 import { SyncLog } from './sync-log.entity';
 import { GitHubService } from './github.service';
 import { ProjectService } from '../project/project.service';
+import { Project } from '../project/project.entity';
 
 export interface SyncResult {
   pulled: number;
@@ -142,16 +143,17 @@ export class SyncService {
     };
   }
 
-  private async ensureGithubProjectId(project: any): Promise<string> {
+  private async ensureGithubProjectId(project: Project): Promise<string> {
     if (project.githubProjectId) return project.githubProjectId;
 
-    const { items, projectId } = await this.githubService.getAllProjectItems(
+    const projectId = await this.githubService.getProjectId(
       project.owner, project.ownerType, project.projectNumber,
     );
     await this.taskRepo.manager.getRepository('Project').update(
       { id: project.id },
       { githubProjectId: projectId },
     );
+    project.githubProjectId = projectId;
     return projectId;
   }
 
