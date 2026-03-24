@@ -141,4 +141,87 @@ export class SyncService {
       projectId: ghProjectId,
     };
   }
+
+  private async ensureGithubProjectId(project: any): Promise<string> {
+    if (project.githubProjectId) return project.githubProjectId;
+
+    const { items, projectId } = await this.githubService.getAllProjectItems(
+      project.owner, project.ownerType, project.projectNumber,
+    );
+    await this.taskRepo.manager.getRepository('Project').update(
+      { id: project.id },
+      { githubProjectId: projectId },
+    );
+    return projectId;
+  }
+
+  async createTaskOnGitHub(
+    projectDbId: number,
+    title: string,
+    body?: string,
+  ): Promise<Task> {
+    const project = await this.projectService.findById(projectDbId);
+    if (!project) throw new Error(`Project #${projectDbId} not found`);
+
+    const ghProjectId = await this.ensureGithubProjectId(project);
+    const { itemId } = await this.githubService.addDraftIssue(ghProjectId, title, body);
+
+    const task = new Task();
+    task.projectId = project.id;
+    task.githubItemId = itemId;
+    task.contentType = 'DRAFT_ISSUE';
+    task.title = title;
+    if (body) task.body = body;
+    task.status = 'Todo';
+    task.syncedAt = new Date();
+    task.isDirty = false;
+    return this.taskRepo.save(task);
+  }
+
+  async updateTaskStatusOnGitHub(
+    projectDbId: number,
+    taskId: number,
+    status: string,
+  ): Promise<Task | null> {
+    const project = await this.projectService.findById(projectDbId);
+    if (!project) throw new Error(`Project #${projectDbId} not found`);
+
+    const task = await this.taskRepo.findOneBy({ id: taskId, projectId: project.id });
+    if (!task || !task.githubItemId) throw new Error(`Task #${taskId} not found or not synced`);
+
+    const ghProjectId = await this.ensureGithubProjectId(project);
+    const { statusFieldId, statusOptions } = await this.githubService.getProjectFields(
+      project.owner, project.ownerType, project.projectNumber,
+    );
+
+    const option = statusOptions.find((o) => o.name === status);
+    if (!option) {
+      throw new Error(`Status "${status}" not found. Available: ${statusOptions.map((o) => o.name).join(', ')}`);
+    }
+
+    await this.githubService.updateFieldValue(ghProjectId, task.githubItemId, statusFieldId, option.id);
+
+    task.status = status;
+    task.syncedAt = new Date();
+    return this.taskRepo.save(task);
+  }
+
+  async deleteTaskOnGitHub(
+    projectDbId: number,
+    taskId: number,
+  ): Promise<boolean> {
+    const project = await this.projectService.findById(projectDbId);
+    if (!project) throw new Error(`Project #${projectDbId} not found`);
+
+    const task = await this.taskRepo.findOneBy({ id: taskId, projectId: project.id });
+    if (!task) return false;
+
+    if (task.githubItemId) {
+      const ghProjectId = await this.ensureGithubProjectId(project);
+      await this.githubService.deleteItem(ghProjectId, task.githubItemId);
+    }
+
+    await this.taskRepo.remove(task);
+    return true;
+  }
 }

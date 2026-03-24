@@ -168,11 +168,8 @@ taskCmd
 // --- Sync ---
 const syncCmd = program
   .command('sync')
-  .description('Sync with GitHub Project')
-  .option('--pull', 'Pull from GitHub only')
-  .option('--push', 'Push to GitHub only')
-  .option('--force', 'Force sync')
-  .action(async (options) => {
+  .description('Pull latest data from GitHub Project')
+  .action(async () => {
     try {
       console.log('Syncing with GitHub Project...');
       const result = await apiRequest<any>('/sync/pull', { method: 'POST' });

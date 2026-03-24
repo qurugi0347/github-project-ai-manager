@@ -153,4 +153,108 @@ export class GitHubService {
 
     return { items: allItems, projectId };
   }
+
+  async getProjectFields(
+    owner: string,
+    ownerType: string,
+    projectNumber: number,
+  ): Promise<{ statusFieldId: string; statusOptions: { id: string; name: string }[] }> {
+    const gql = this.getGraphqlClient();
+    const ownerField = ownerType === 'organization' ? 'organization' : 'user';
+
+    const query = `
+      query GetProjectFields($owner: String!, $number: Int!) {
+        ${ownerField}(login: $owner) {
+          projectV2(number: $number) {
+            fields(first: 50) {
+              nodes {
+                ... on ProjectV2SingleSelectField {
+                  id
+                  name
+                  options { id name }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const result: any = await gql(query, { owner, number: projectNumber });
+    const fields = result[ownerField].projectV2.fields.nodes;
+    const statusField = fields.find((f: any) => f.name === 'Status' && f.options);
+
+    if (!statusField) {
+      throw new Error('Status field not found in GitHub Project');
+    }
+
+    return {
+      statusFieldId: statusField.id,
+      statusOptions: statusField.options,
+    };
+  }
+
+  async addDraftIssue(
+    projectId: string,
+    title: string,
+    body?: string,
+  ): Promise<{ itemId: string }> {
+    const gql = this.getGraphqlClient();
+
+    const mutation = `
+      mutation AddDraftIssue($projectId: ID!, $title: String!, $body: String) {
+        addProjectV2DraftIssue(input: {
+          projectId: $projectId
+          title: $title
+          body: $body
+        }) {
+          projectItem { id }
+        }
+      }
+    `;
+
+    const result: any = await gql(mutation, { projectId, title, body: body || null });
+    return { itemId: result.addProjectV2DraftIssue.projectItem.id };
+  }
+
+  async updateFieldValue(
+    projectId: string,
+    itemId: string,
+    fieldId: string,
+    singleSelectOptionId: string,
+  ): Promise<void> {
+    const gql = this.getGraphqlClient();
+
+    const mutation = `
+      mutation UpdateFieldValue($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+        updateProjectV2ItemFieldValue(input: {
+          projectId: $projectId
+          itemId: $itemId
+          fieldId: $fieldId
+          value: { singleSelectOptionId: $optionId }
+        }) {
+          projectV2Item { id }
+        }
+      }
+    `;
+
+    await gql(mutation, { projectId, itemId, fieldId, optionId: singleSelectOptionId });
+  }
+
+  async deleteItem(projectId: string, itemId: string): Promise<void> {
+    const gql = this.getGraphqlClient();
+
+    const mutation = `
+      mutation DeleteItem($projectId: ID!, $itemId: ID!) {
+        deleteProjectV2Item(input: {
+          projectId: $projectId
+          itemId: $itemId
+        }) {
+          deletedItemId
+        }
+      }
+    `;
+
+    await gql(mutation, { projectId, itemId });
+  }
 }

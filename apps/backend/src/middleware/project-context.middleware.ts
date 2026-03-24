@@ -14,7 +14,8 @@ export class ProjectContextMiddleware implements NestMiddleware {
       return next();
     }
 
-    const project = await this.projectService.findOrCreate(owner, projectNumber);
+    const project = await this.projectService.findByOwnerAndNumber(owner, projectNumber);
+    if (!project) return next();
     (req as any).project = project;
     next();
   }
