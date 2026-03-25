@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, writeFileSync, mkdirSync, readFileSync, copyFileSync } from 'fs';
+import { join, dirname } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
 
@@ -172,7 +172,26 @@ export async function runInit(): Promise<void> {
     console.log(`⚠ 프로젝트 자동 등록 실패 (서버 사용 시 자동 등록됩니다): ${(err as Error).message}`);
   }
 
-  // 7. 성공 메시지
+  // 7. Claude Code Skill 설정
+  const skillDir = join(cwd, '.claude', 'skills', 'gpm');
+  const skillPath = join(skillDir, 'SKILL.md');
+
+  if (!existsSync(skillPath)) {
+    // 템플릿 파일 위치 탐색
+    const templateCandidates = [
+      join(__dirname, '..', '..', '..', '..', 'templates', 'claude-skill-gpm.md'),  // 개발 환경
+      join(__dirname, '..', '..', 'templates', 'claude-skill-gpm.md'),              // npm 패키지
+    ];
+
+    const templatePath = templateCandidates.find((p) => existsSync(p));
+    if (templatePath) {
+      mkdirSync(skillDir, { recursive: true });
+      copyFileSync(templatePath, skillPath);
+      console.log('✓ Claude Code Skill 설정 완료 (.claude/skills/gpm/SKILL.md)');
+    }
+  }
+
+  // 8. 성공 메시지
   console.log(`✓ .gpmrc created`);
   console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
   if (repoInfo) {

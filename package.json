@@ -9,7 +9,8 @@
     "apps/cli/bin",
     "apps/cli/dist",
     "apps/backend/dist",
-    "apps/frontend/dist"
+    "apps/frontend/dist",
+    "templates"
   ],
   "workspaces": [
     "apps/*"
