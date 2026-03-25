@@ -12,46 +12,75 @@ user_invocable: true
 
 <instructions>
 
-## /gpm next — 다음 태스크 시작
+## /gpm next — 다음 태스크 추천 및 시작
 
 1. GitHub에서 최신 태스크를 동기화합니다:
    ```bash
    npx github-project-manager sync
    ```
 
-2. Todo 상태의 태스크 목록을 조회합니다:
+2. 전체 태스크 목록을 조회합니다:
    ```bash
-   npx github-project-manager task list --json
+   npx github-project-manager task list --json --limit 100
    ```
 
-3. 가장 먼저 나오는 Todo 태스크를 선택하여 "In Progress"로 변경합니다:
+3. 현재 프로젝트 상태를 분석합니다:
+   - 현재 In Progress 태스크가 있는지 확인 (있으면 먼저 완료를 권유)
+   - Todo 태스크를 Phase별, 의존성, 난이도 기준으로 분석
+   - CLAUDE.md, docs/spec/ 등 프로젝트 문서를 참고하여 현재 목표에 맞는 태스크 추천
+
+4. 사용자에게 추천 태스크 목록을 제시하고 선택을 받습니다:
+   ```
+   📋 추천 태스크 (현재 목표: Phase 2 웹 UI 구현)
+   1. #8 TanStack Query 설정 — 다른 UI 작업의 기반
+   2. #10 태스크 목록/상세 페이지 — 기본 UI 필요
+   3. #9 칸반 보드 구현 — UI 고급 기능
+   어떤 태스크를 시작할까요?
+   ```
+
+5. 사용자가 선택한 태스크를 "In Progress"로 변경합니다:
    ```bash
    npx github-project-manager task status <id> "In Progress"
    ```
 
-4. 해당 태스크의 제목과 내용을 바탕으로 구현 계획을 수립하고 작업을 시작합니다.
-   - 프로젝트의 docs/spec/ 문서가 있으면 참조하세요
-   - CLAUDE.md의 코딩 규칙을 따르세요
+6. 선택한 태스크에 대해 구현 계획을 수립합니다:
+   - 프로젝트의 docs/spec/ 문서가 있으면 참조
+   - CLAUDE.md의 코딩 규칙을 따름
+   - 구체적인 파일 수정 목록과 순서를 제안
 
-## /gpm done — 현재 작업 완료
+## /gpm done — 현재 작업 완료 처리
 
-1. 현재 In Progress 상태의 태스크를 찾습니다:
+1. 전체 태스크 목록을 조회합니다:
    ```bash
-   npx github-project-manager task list --json
+   npx github-project-manager task list --json --limit 100
    ```
-   JSON 결과에서 status가 "In Progress"인 태스크를 찾으세요.
 
-2. 해당 태스크를 "Done"으로 변경합니다:
+2. In Progress와 최근 Done 태스크를 모두 확인합니다:
+   - In Progress 태스크가 여러 개일 수 있음 (팀 작업)
+   - GitHub 설정에 의해 자동으로 Done 처리된 태스크도 확인
+   - 최근 git log, 변경된 파일 등을 분석하여 현재 사용자가 작업한 태스크를 추론
+
+3. 사용자에게 확인을 받습니다:
+   ```
+   🔍 현재 작업 분석:
+   - In Progress: #9 칸반 보드 구현, #10 태스크 목록
+   - 최근 Done: #8 TanStack Query (자동 완료)
+
+   최근 커밋 분석 결과 #9 칸반 보드 구현을 작업한 것으로 보입니다.
+   이 태스크를 완료 처리할까요?
+   ```
+
+4. 확인 후 해당 태스크를 "Done"으로 변경합니다:
    ```bash
    npx github-project-manager task status <id> "Done"
    ```
 
-3. GitHub과 동기화합니다:
+5. GitHub과 동기화합니다:
    ```bash
    npx github-project-manager sync
    ```
 
-4. 다음 추천 태스크를 표시합니다 (Todo 목록에서 첫 번째).
+6. 다음 추천 태스크를 `/gpm next`와 동일한 방식으로 제안합니다.
 
 ## /gpm status — 프로젝트 현황
 
@@ -68,31 +97,47 @@ user_invocable: true
 3. 상태별로 집계하여 요약 출력:
    ```
    📊 프로젝트 현황
+   - Backlog: N개
    - Todo: N개
    - In Progress: N개
    - Done: N개
-   - 기타: N개
    총 태스크: N개
+
+   🔥 현재 진행 중:
+   - #9 칸반 보드 구현 (담당: @user)
+   - #10 태스크 목록 (담당: @user)
    ```
 
 ## /gpm plan — 작업 계획 수립
 
-1. Todo 태스크 목록을 조회합니다:
+1. 전체 태스크 목록을 조회합니다:
    ```bash
    npx github-project-manager task list --json --limit 100
    ```
 
-2. 태스크 제목과 라벨을 분석하여:
+2. 프로젝트 문서(CLAUDE.md, docs/spec/roadmap.md 등)를 참조하여 현재 목표를 파악합니다.
+
+3. 태스크를 분석합니다:
    - Phase별 그룹핑 (제목에 [Phase2], [Phase3] 등이 있으면)
    - 의존성 추론 (예: "TanStack Query 설정"은 "칸반 보드"보다 먼저)
    - 작업 난이도 예측
+   - 현재 완료된 작업 대비 남은 작업 파악
 
-3. 추천 작업 순서를 제안합니다:
+4. 사용자에게 목표를 확인합니다:
    ```
-   📋 추천 작업 순서:
-   1. #8 TanStack Query 설정 (기반 작업)
-   2. #10 태스크 목록/상세 페이지 (UI 기본)
-   3. #9 칸반 보드 구현 (UI 고급)
+   현재 Phase 2 (웹 UI + 양방향 동기화) 진행 중입니다.
+   이 방향으로 계획을 세울까요, 아니면 다른 목표가 있으신가요?
+   ```
+
+5. 확인 후 추천 작업 순서를 제안합니다:
+   ```
+   📋 추천 작업 순서 (Phase 2 목표):
+   1. #8 TanStack Query 설정 — 기반 작업, 난이도: 낮음
+   2. #10 태스크 목록/상세 페이지 — UI 기본, 난이도: 중간
+   3. #9 칸반 보드 구현 — UI 고급, 난이도: 높음
+   4. #12 자동 폴링 — 백엔드, 난이도: 중간
+
+   예상 소요: 약 4개 작업 단위
    ```
 
 ## /gpm sync — GitHub 동기화
@@ -104,14 +149,31 @@ npx github-project-manager sync
 
 결과를 사용자에게 보고합니다.
 
-## /gpm create <title> — 태스크 생성
+## /gpm create <title> — 태스크 생성 + 작업 계획
 
-GitHub Project에 새 태스크를 직접 생성합니다:
-```bash
-npx github-project-manager task create "<title>" --json
-```
+1. GitHub Project에 새 태스크를 생성합니다:
+   ```bash
+   npx github-project-manager task create "<title>" --json
+   ```
 
-생성된 태스크 정보를 표시합니다.
+2. 생성된 태스크에 대해 구체적인 작업 계획을 작성합니다:
+   - **목적**: 이 태스크가 달성해야 하는 결과물은 무엇인지
+   - **완료 기준**: 어떤 상태가 되면 이 태스크가 완료인지
+   - **구현 방향**: 어떤 파일을 수정하고 어떤 접근 방식을 사용할지
+   - **의존성**: 선행 작업이 필요한지
+
+3. 작업 계획을 사용자에게 제시합니다:
+   ```
+   ✓ 태스크 생성: #15 "칸반 보드 드래그 앤 드롭"
+
+   📝 작업 계획:
+   - 목적: 칸반 보드에서 태스크 카드를 드래그하여 상태 변경
+   - 완료 기준: 드래그로 Todo → In Progress → Done 이동 가능
+   - 구현: @dnd-kit 라이브러리 사용, KanbanColumn 컴포넌트 구현
+   - 의존성: #8 TanStack Query 선행 필요
+
+   바로 작업을 시작할까요?
+   ```
 
 </instructions>
 
@@ -121,4 +183,5 @@ npx github-project-manager task create "<title>" --json
 - GitHub API rate limit에 주의. sync는 필요할 때만 실행 (연속 호출 자제)
 - 태스크 상태 변경 시 사용 가능한 상태값은 GitHub Project의 Status 필드 옵션에 따라 다름 (예: Todo, In Progress, Done, Backlog 등)
 - npx 실행 시 첫 호출은 패키지 다운로드로 느릴 수 있음. 글로벌 설치(npm i -g github-project-manager) 권장
+- 태스크 추천/완료 판단 시 자동으로 결정하지 않고 사용자에게 확인을 받는다
 </constraints>
