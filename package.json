@@ -1,6 +1,16 @@
 {
-  "name": "github-project-ai-manager",
-  "private": true,
+  "name": "github-project-manager",
+  "version": "0.1.0",
+  "description": "GitHub Project V2 manager - CLI + Web UI for task management with Claude Code",
+  "bin": {
+    "gpm": "./apps/cli/bin/gpm.js"
+  },
+  "files": [
+    "apps/cli/bin",
+    "apps/cli/dist",
+    "apps/backend/dist",
+    "apps/frontend/dist"
+  ],
   "workspaces": [
     "apps/*"
   ],
@@ -12,10 +22,21 @@
     "build:cli": "yarn workspace @gpm/cli build",
     "build": "yarn build:cli && yarn build:backend && yarn build:frontend",
     "gpm": "yarn workspace @gpm/cli start",
-    "start": "yarn workspace @gpm/backend start:prod"
+    "start": "yarn workspace @gpm/backend start:prod",
+    "prepublishOnly": "yarn build"
   },
+  "keywords": [
+    "github",
+    "project",
+    "manager",
+    "cli",
+    "kanban",
+    "task",
+    "claude-code"
+  ],
+  "license": "MIT",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.0.0"
   },
   "packageManager": "yarn@3.8.7"
 }

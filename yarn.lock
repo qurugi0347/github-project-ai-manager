@@ -3366,9 +3366,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"github-project-ai-manager@workspace:.":
+"github-project-manager@workspace:.":
   version: 0.0.0-use.local
-  resolution: "github-project-ai-manager@workspace:."
+  resolution: "github-project-manager@workspace:."
+  bin:
+    gpm: ./apps/cli/bin/gpm.js
   languageName: unknown
   linkType: soft
 
