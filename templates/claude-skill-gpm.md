@@ -1,6 +1,7 @@
 ---
 name: gpm
-description: GitHub Project Manager — 태스크 관리 자동화. /gpm next로 다음 작업 시작, /gpm done으로 완료 처리.
+description: "GitHub Project V2 태스크를 CLI로 관리하는 AI PM 도구. 다음 작업 시작(/gpm next), 완료 처리(/gpm done), 현황 조회(/gpm status), 작업 계획 수립(/gpm plan), 동기화(/gpm sync), 태스크 생성(/gpm create). .gpmrc가 있는 프로젝트에서 사용."
+keywords: [gpm, task, 태스크, project, 프로젝트, github, 관리, PM, 칸반, kanban, next, done, status, plan, sync, create]
 user_invocable: true
 ---
 
@@ -116,7 +117,8 @@ npx github-project-manager task create "<title>" --json
 
 <constraints>
 - .gpmrc 파일이 없으면 "npx github-project-manager init을 먼저 실행하세요"라고 안내
-- gpm server가 실행 중이어야 task create/status가 동작함. 서버가 안 떠있으면 standalone 모드로 sync만 가능
-- GitHub API rate limit에 주의. sync는 필요할 때만 실행
-- 태스크 상태 변경 시 사용 가능한 상태값은 GitHub Project의 Status 필드 옵션에 따라 다름
+- task create/status는 gpm server가 실행 중이거나, gh auth가 되어있어야 GitHub API 호출 가능
+- GitHub API rate limit에 주의. sync는 필요할 때만 실행 (연속 호출 자제)
+- 태스크 상태 변경 시 사용 가능한 상태값은 GitHub Project의 Status 필드 옵션에 따라 다름 (예: Todo, In Progress, Done, Backlog 등)
+- npx 실행 시 첫 호출은 패키지 다운로드로 느릴 수 있음. 글로벌 설치(npm i -g github-project-manager) 권장
 </constraints>

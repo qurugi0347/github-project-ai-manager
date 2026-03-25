@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync, writeFileSync, mkdirSync, readFileSync, copyFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync, writeFileSync, mkdirSync, copyFileSync } from 'fs';
+import { join } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
 
