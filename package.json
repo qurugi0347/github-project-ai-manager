@@ -20,7 +20,7 @@
     "build:backend": "yarn workspace @gpm/backend build",
     "build:frontend": "yarn workspace @gpm/frontend build",
     "build:cli": "yarn workspace @gpm/cli build",
-    "build": "yarn build:cli && yarn build:backend && yarn build:frontend",
+    "build": "yarn build:backend && yarn build:cli && yarn build:frontend",
     "gpm": "yarn workspace @gpm/cli start",
     "start": "yarn workspace @gpm/backend start:prod",
     "prepublishOnly": "yarn build"
