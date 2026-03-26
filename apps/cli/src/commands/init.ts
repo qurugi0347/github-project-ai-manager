@@ -191,7 +191,25 @@ export async function runInit(): Promise<void> {
     }
   }
 
-  // 8. 성공 메시지
+  // 8. Claude Code Agent 설정
+  const agentDir = join(cwd, '.claude', 'agents');
+  const agentPath = join(agentDir, 'gpm-pm.md');
+
+  if (!existsSync(agentPath)) {
+    const agentCandidates = [
+      join(__dirname, '..', '..', '..', '..', 'templates', 'claude-agent-gpm-pm.md'),
+      join(__dirname, '..', '..', 'templates', 'claude-agent-gpm-pm.md'),
+    ];
+
+    const agentTemplatePath = agentCandidates.find((p) => existsSync(p));
+    if (agentTemplatePath) {
+      mkdirSync(agentDir, { recursive: true });
+      copyFileSync(agentTemplatePath, agentPath);
+      console.log('✓ Claude Code Agent 설정 완료 (.claude/agents/gpm-pm.md)');
+    }
+  }
+
+  // 9. 성공 메시지
   console.log(`✓ .gpmrc created`);
   console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
   if (repoInfo) {
