@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, apiPatch } from '@/api/client';
 import type { Project, Task, Milestone } from '@/types';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -59,6 +59,18 @@ export default function ProjectPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleStatusChange = (taskId: number, newStatus: string) => {
+    const previousTasks = tasks;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
+    );
+
+    apiPatch(`/tasks/${taskId}`, { status: newStatus })
+      .catch(() => {
+        setTasks(previousTasks);
+      });
   };
 
   const handleMilestoneClick = (milestone: Milestone) => {
@@ -151,7 +163,7 @@ export default function ProjectPage() {
         <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
           Tasks
         </h3>
-        <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} />
+        <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onStatusChange={handleStatusChange} />
       </div>
 
       {/* Detail Panels */}
