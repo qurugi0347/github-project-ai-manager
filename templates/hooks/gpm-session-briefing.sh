@@ -10,7 +10,8 @@ GPMRC="${PROJECT_ROOT:-.}/.gpmrc"
 [ ! -f "$GPMRC" ] && exit 0
 
 # 프로젝트 해시 (캐시 키)
-PROJ_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -c1-8)
+PROJ_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1)
+PROJ_HASH="${PROJ_HASH:0:12}"
 CACHE_FILE="/tmp/gpm-briefing-${PROJ_HASH}"
 
 # 30분 캐시 (1800초) — 빈번한 npx 호출 방지

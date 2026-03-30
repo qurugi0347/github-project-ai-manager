@@ -2,20 +2,19 @@
 # GPM Commit Linker — PostToolUse hook (Bash)
 # 커밋 감지 시 In Progress 태스크와 연결하고 완료 처리를 제안
 # stderr → 사용자 알림으로 표시
+# 필수: jq
+
+# jq 없으면 스킵
+command -v jq &>/dev/null || exit 0
 
 # stdin에서 hook input JSON 읽기
 INPUT=$(cat)
 
-# tool_name 추출 — Bash가 아니면 스킵
-TOOL_NAME=$(echo "$INPUT" | sed -n 's/.*"tool_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+# tool_name, command 추출
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 [ "$TOOL_NAME" != "Bash" ] && exit 0
 
-# command 추출
-if command -v jq &>/dev/null; then
-  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-else
-  COMMAND=$(echo "$INPUT" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\(.*\)"/\1/p' | head -1)
-fi
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 
 # git commit 명령이 아니면 스킵
 echo "$COMMAND" | grep -qE 'git\s+commit' || exit 0
@@ -34,22 +33,18 @@ cd "$PROJECT_ROOT" || exit 0
 TASKS=$(npx github-project-manager task list --json --limit 30 2>/dev/null)
 [ -z "$TASKS" ] || [ "$TASKS" = "[]" ] && exit 0
 
-if command -v jq &>/dev/null; then
-  IN_PROGRESS=$(echo "$TASKS" | jq -r '
-    [.[] | select(.status == "In Progress")]
-    | if length > 0 then
-        map("#\(.number // .id): \(.title)")
-        | join(", ")
-      else "없음" end
-  ' 2>/dev/null)
-  IN_PROGRESS_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "In Progress")] | length' 2>/dev/null)
-else
-  IN_PROGRESS="(jq 미설치 — /gpm status로 확인)"
-  IN_PROGRESS_COUNT="?"
-fi
+IN_PROGRESS=$(echo "$TASKS" | jq -r '
+  [.[] | select(.status == "In Progress")]
+  | if length > 0 then
+      map("#\(.number // .id): \(.title)")
+      | join(", ")
+    else "없음" end
+' 2>/dev/null)
+IN_PROGRESS_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "In Progress")] | length' 2>/dev/null)
 
 # 커밋 마커 파일 생성 (Stop hook에서 참조)
-PROJ_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -c1-8)
+PROJ_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1)
+PROJ_HASH="${PROJ_HASH:0:12}"
 echo "$COMMIT_MSG" > "/tmp/gpm-commit-marker-${PROJ_HASH}"
 
 # 브리핑 캐시 무효화 (다음 프롬프트에서 갱신되도록)
