@@ -4,6 +4,8 @@ import { existsSync, writeFileSync, mkdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
+import { HOOK_REGISTRY } from '../hooks/hook-registry';
+import { installHookFiles } from './hooks';
 
 export function validateGhAuth(): string {
   try {
@@ -100,7 +102,12 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-export async function runInit(): Promise<void> {
+interface InitOptions {
+  hooks?: boolean;
+}
+
+export async function runInit(options: InitOptions = {}): Promise<void> {
+  const skipHooks = options.hooks === false;
   // 1. gh auth 확인
   console.log('GitHub CLI 인증 확인 중...');
   try {
@@ -209,7 +216,21 @@ export async function runInit(): Promise<void> {
     }
   }
 
-  // 9. 성공 메시지
+  // 9. Claude Code Hooks 설정
+  if (!skipHooks) {
+    const installHooks = await prompt('? Claude Code Hooks를 설치하시겠습니까? (Y/n): ');
+    if (installHooks.toLowerCase() !== 'n') {
+      const result = installHookFiles(HOOK_REGISTRY, { silent: true });
+      if (result.filesInstalled > 0) {
+        console.log('✓ Claude Code Hooks 설정 완료 (.claude/hooks/)');
+      }
+      if (result.settingsChanged) {
+        console.log('✓ Claude Code Settings에 Hooks 등록 완료 (.claude/settings.json)');
+      }
+    }
+  }
+
+  // 11. 성공 메시지
   console.log(`✓ .gpmrc created`);
   console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
   if (repoInfo) {
