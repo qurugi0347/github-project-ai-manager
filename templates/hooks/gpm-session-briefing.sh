@@ -1,9 +1,19 @@
 #!/bin/bash
+set -u
 # GPM Session Briefing — UserPromptSubmit hook
 # 세션 시작 시 In Progress 태스크와 마일스톤별 다음 추천 태스크를 표시
 # stdout → Claude context에 주입
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+# gpm CLI 실행 (gpm 직접 사용 → npx fallback)
+gpm_cli() {
+  if command -v gpm &>/dev/null; then
+    gpm "$@"
+  else
+    npx github-project-manager "$@"
+  fi
+}
+
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 GPMRC="${PROJECT_ROOT:-.}/.gpmrc"
 
 # .gpmrc 없으면 스킵
@@ -14,9 +24,9 @@ PROJ_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | 
 PROJ_HASH="${PROJ_HASH:0:12}"
 CACHE_FILE="/tmp/gpm-briefing-${PROJ_HASH}"
 
-# 30분 캐시 (1800초) — 빈번한 npx 호출 방지
+# 30분 캐시 (1800초) — 빈번한 CLI 호출 방지
 if [ -f "$CACHE_FILE" ]; then
-  CACHE_MOD=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)
+  CACHE_MOD=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0)
   CACHE_AGE=$(( $(date +%s) - CACHE_MOD ))
   if [ "$CACHE_AGE" -lt 1800 ]; then
     cat "$CACHE_FILE"
@@ -26,7 +36,7 @@ fi
 
 # 태스크 목록 조회 (로컬 SQLite 캐시, GitHub API 호출 없음)
 cd "$PROJECT_ROOT" || exit 0
-TASKS=$(npx github-project-manager task list --json --limit 50 2>/dev/null)
+TASKS=$(gpm_cli task list --json --limit 50 2>/dev/null || echo "")
 
 # 빈 결과 또는 에러 시 스킵
 if [ -z "$TASKS" ] || [ "$TASKS" = "[]" ]; then
@@ -50,9 +60,9 @@ IN_PROGRESS=$(echo "$TASKS" | jq -r '
       map("- #\(.number // .id): \(.title)\(if .milestone then " [\(.milestone)]" else "" end)")
       | join("\n")
     else empty end
-' 2>/dev/null)
+' 2>/dev/null || echo "")
 
-IN_PROGRESS_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "In Progress")] | length' 2>/dev/null)
+IN_PROGRESS_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "In Progress")] | length' 2>/dev/null || echo 0)
 
 TODO_LIST=$(echo "$TASKS" | jq -r '
   [.[] | select(.status == "Todo" or .status == "TODO" or .status == "To Do")]
@@ -62,9 +72,9 @@ TODO_LIST=$(echo "$TASKS" | jq -r '
       map("- #\(.number // .id): \(.title)\(if .milestone then " [\(.milestone)]" else "" end)")
       | join("\n")
     else empty end
-' 2>/dev/null)
+' 2>/dev/null || echo "")
 
-TODO_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "Todo" or .status == "TODO" or .status == "To Do")] | length' 2>/dev/null)
+TODO_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "Todo" or .status == "TODO" or .status == "To Do")] | length' 2>/dev/null || echo 0)
 
 # 브리핑 생성
 {
