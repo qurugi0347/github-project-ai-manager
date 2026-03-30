@@ -1,9 +1,12 @@
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, chmodSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync, copyFileSync, chmodSync } from 'fs';
 import { join } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
+import { HOOK_REGISTRY } from '../hooks/hook-registry';
+import { mergeHookSettings } from '../utils/settings';
+import { findTemplateDir } from '../utils/template';
 
 export function validateGhAuth(): string {
   try {
@@ -100,7 +103,12 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-export async function runInit(): Promise<void> {
+interface InitOptions {
+  hooks?: boolean;
+}
+
+export async function runInit(options: InitOptions = {}): Promise<void> {
+  const skipHooks = options.hooks === false;
   // 1. gh auth 확인
   console.log('GitHub CLI 인증 확인 중...');
   try {
@@ -210,79 +218,38 @@ export async function runInit(): Promise<void> {
   }
 
   // 9. Claude Code Hooks 설정
-  const hooksDir = join(cwd, '.claude', 'hooks');
-  const hookFiles = [
-    'gpm-session-briefing.sh',
-    'gpm-commit-linker.sh',
-    'gpm-response-suggest.sh',
-  ];
+  if (!skipHooks) {
+    const installHooks = await prompt('? Claude Code Hooks를 설치하시겠습니까? (Y/n): ');
+    if (installHooks.toLowerCase() !== 'n') {
+      const templateDir = findTemplateDir();
+      if (templateDir) {
+        const hooksDir = join(cwd, '.claude', 'hooks');
+        let hooksInstalled = false;
 
-  const hookTemplateDirCandidates = [
-    join(__dirname, '..', '..', '..', '..', 'templates', 'hooks'),  // 개발 환경
-    join(__dirname, '..', '..', 'templates', 'hooks'),              // npm 패키지
-  ];
-  const hookTemplateDir = hookTemplateDirCandidates.find((p) => existsSync(p));
+        for (const hook of HOOK_REGISTRY) {
+          const dest = join(hooksDir, hook.fileName);
+          if (existsSync(dest)) continue;
 
-  if (hookTemplateDir) {
-    let hooksInstalled = false;
-    for (const hookFile of hookFiles) {
-      const hookDest = join(hooksDir, hookFile);
-      if (!existsSync(hookDest)) {
-        const hookSrc = join(hookTemplateDir, hookFile);
-        if (existsSync(hookSrc)) {
+          const src = join(templateDir, 'hooks', hook.fileName);
+          if (!existsSync(src)) continue;
+
           mkdirSync(hooksDir, { recursive: true });
-          copyFileSync(hookSrc, hookDest);
-          chmodSync(hookDest, 0o755);
+          copyFileSync(src, dest);
+          chmodSync(dest, 0o755);
           hooksInstalled = true;
         }
+
+        if (hooksInstalled) {
+          console.log('✓ Claude Code Hooks 설정 완료 (.claude/hooks/)');
+        }
+
+        // 10. settings.json에 Hooks 등록
+        const settingsPath = join(cwd, '.claude', 'settings.json');
+        const registered = mergeHookSettings(settingsPath, HOOK_REGISTRY);
+        if (registered) {
+          console.log('✓ Claude Code Settings에 Hooks 등록 완료 (.claude/settings.json)');
+        }
       }
-    }
-    if (hooksInstalled) {
-      console.log('✓ Claude Code Hooks 설정 완료 (.claude/hooks/)');
-    }
-  }
-
-  // 10. Claude Code 프로젝트 settings.json에 Hooks 등록
-  const settingsPath = join(cwd, '.claude', 'settings.json');
-  const settingsTemplateCandidates = [
-    join(__dirname, '..', '..', '..', '..', 'templates', 'claude-settings-hooks.json'),
-    join(__dirname, '..', '..', 'templates', 'claude-settings-hooks.json'),
-  ];
-  const settingsTemplatePath = settingsTemplateCandidates.find((p) => existsSync(p));
-
-  if (settingsTemplatePath) {
-    const hookSettings = JSON.parse(readFileSync(settingsTemplatePath, 'utf-8'));
-    let currentSettings: Record<string, unknown> = {};
-
-    if (existsSync(settingsPath)) {
-      try {
-        currentSettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      } catch {
-        currentSettings = {};
-      }
-    }
-
-    // hooks 키를 머지 (기존 hooks 보존, GPM hooks 추가)
-    const currentHooks = (currentSettings.hooks ?? {}) as Record<string, unknown[]>;
-    const newHooks = hookSettings.hooks as Record<string, unknown[]>;
-    let settingsChanged = false;
-
-    for (const [event, entries] of Object.entries(newHooks)) {
-      const existing = currentHooks[event] ?? [];
-      const existingStr = JSON.stringify(existing);
-      // GPM hook이 이미 등록되어 있는지 확인
-      const hasGpmHook = existingStr.includes('gpm-');
-      if (!hasGpmHook) {
-        currentHooks[event] = [...existing, ...entries];
-        settingsChanged = true;
-      }
-    }
-
-    if (settingsChanged) {
-      currentSettings.hooks = currentHooks;
-      mkdirSync(join(cwd, '.claude'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify(currentSettings, null, 2) + '\n', 'utf-8');
-      console.log('✓ Claude Code Settings에 Hooks 등록 완료 (.claude/settings.json)');
     }
   }
 

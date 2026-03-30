@@ -3,6 +3,7 @@ import { getAppContext, closeAppContext } from './utils/bootstrap';
 import { AppService } from '@gpm/backend/dist/app.service';
 import { runInit } from './commands/init';
 import { runServer } from './commands/server';
+import { runHooksList, runHooksInstall, runHooksRemove } from './commands/hooks';
 import { apiRequest } from './utils/api-client';
 
 const program = new Command();
@@ -26,8 +27,9 @@ program
 program
   .command('init')
   .description('Initialize GPM with a GitHub Project')
-  .action(async () => {
-    await runInit();
+  .option('--no-hooks', 'Skip Claude Code Hooks installation')
+  .action(async (options) => {
+    await runInit({ hooks: options.hooks });
   });
 
 program
@@ -164,6 +166,30 @@ taskCmd
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);
     }
+  });
+
+// --- Hooks ---
+const hooksCmd = program.command('hooks').description('Manage Claude Code hooks');
+
+hooksCmd
+  .command('list')
+  .description('List installed hooks')
+  .action(() => {
+    runHooksList();
+  });
+
+hooksCmd
+  .command('install [name]')
+  .description('Install hooks (all or specific)')
+  .action((name?: string) => {
+    runHooksInstall(name);
+  });
+
+hooksCmd
+  .command('remove [name]')
+  .description('Remove hooks (all or specific)')
+  .action((name?: string) => {
+    runHooksRemove(name);
   });
 
 // --- Sync ---
