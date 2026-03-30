@@ -6,9 +6,11 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   ParseIntPipe,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TaskService } from './task.service';
@@ -26,10 +28,17 @@ export class TaskController {
     return (req as any).project;
   }
 
+  private getProjectId(req: Request, queryProjectId?: string): number {
+    const project = (req as any).project;
+    if (project?.id) return project.id;
+    if (queryProjectId) return Number(queryProjectId);
+    throw new BadRequestException('projectId is required');
+  }
+
   @Get()
-  async findAll(@Req() req: Request) {
-    const project = this.getProject(req);
-    return this.taskService.findAll(project.id);
+  async findAll(@Req() req: Request, @Query('projectId') projectId?: string) {
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    return this.taskService.findAll(resolvedProjectId);
   }
 
   @Get(':id')
