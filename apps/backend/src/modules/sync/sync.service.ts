@@ -73,6 +73,11 @@ export class SyncService {
       // Assignees 추출
       const assignees = item.content.assignees?.nodes.map((a) => a.login) || [];
 
+      // Branch 추출
+      const branch = contentType === 'PULL_REQUEST'
+        ? item.content.headRefName ?? null
+        : item.content.linkedBranches?.nodes?.[0]?.ref?.name ?? null;
+
       remoteItemIds.push(item.id);
 
       const existing = await this.taskRepo.findOneBy({
@@ -87,6 +92,7 @@ export class SyncService {
         existing.status = status;
         existing.contentType = contentType;
         existing.assignees = assignees;
+        existing.branch = branch;
         existing.githubUpdatedAt = item.content.updatedAt ? new Date(item.content.updatedAt) : existing.githubUpdatedAt;
         existing.syncedAt = new Date();
         existing.isDirty = false;
@@ -102,6 +108,7 @@ export class SyncService {
         if (item.content.body) task.body = item.content.body;
         task.status = status;
         task.assignees = assignees;
+        task.branch = branch;
         if (item.content.updatedAt) {
           task.githubCreatedAt = new Date(item.content.updatedAt);
           task.githubUpdatedAt = new Date(item.content.updatedAt);
