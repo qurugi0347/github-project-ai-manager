@@ -31,7 +31,11 @@ export class TaskController {
   private getProjectId(req: Request, queryProjectId?: string): number {
     const project = (req as any).project;
     if (project?.id) return project.id;
-    if (queryProjectId) return Number(queryProjectId);
+    if (queryProjectId) {
+      const parsed = Number(queryProjectId);
+      if (Number.isNaN(parsed)) throw new BadRequestException('projectId must be a number');
+      return parsed;
+    }
     throw new BadRequestException('projectId is required');
   }
 

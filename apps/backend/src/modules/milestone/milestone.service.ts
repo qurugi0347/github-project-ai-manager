@@ -21,19 +21,29 @@ export class MilestoneService {
       order: { dueDate: 'ASC' },
     });
 
-    const result = await Promise.all(
-      milestones.map(async (milestone) => {
-        const total = await this.taskRepo.count({
-          where: { milestoneId: milestone.id },
-        });
-        const done = await this.taskRepo.count({
-          where: { milestoneId: milestone.id, status: 'Done' },
-        });
-        return { ...milestone, taskCount: { total, done } };
-      }),
+    if (milestones.length === 0) return [];
+
+    const milestoneIds = milestones.map((m) => m.id);
+
+    // 단일 쿼리로 milestone별 task 카운트 집계 (N+1 방지)
+    const counts = await this.taskRepo
+      .createQueryBuilder('task')
+      .select('task.milestoneId', 'milestoneId')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect('SUM(CASE WHEN task.status = :done THEN 1 ELSE 0 END)', 'doneCount')
+      .where('task.milestoneId IN (:...milestoneIds)', { milestoneIds })
+      .setParameter('done', 'Done')
+      .groupBy('task.milestoneId')
+      .getRawMany<{ milestoneId: number; total: string; doneCount: string }>();
+
+    const countMap = new Map(
+      counts.map((c) => [c.milestoneId, { total: Number(c.total), done: Number(c.doneCount) }]),
     );
 
-    return result;
+    return milestones.map((milestone) => ({
+      ...milestone,
+      taskCount: countMap.get(milestone.id) ?? { total: 0, done: 0 },
+    }));
   }
 
   async findOne(

@@ -18,7 +18,11 @@ export class MilestoneController {
     if (!projectId) {
       throw new BadRequestException('projectId query parameter is required');
     }
-    return this.milestoneService.findAllByProject(Number(projectId));
+    const parsed = Number(projectId);
+    if (Number.isNaN(parsed)) {
+      throw new BadRequestException('projectId must be a number');
+    }
+    return this.milestoneService.findAllByProject(parsed);
   }
 
   @Get(':id')
