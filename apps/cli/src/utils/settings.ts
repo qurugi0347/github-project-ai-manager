@@ -106,17 +106,21 @@ export function getInstalledHooks(
   settingsPath: string,
   registry: HookDefinition[],
 ): InstalledHookInfo[] {
-  let settingsStr = '';
-  if (existsSync(settingsPath)) {
-    try {
-      settingsStr = readFileSync(settingsPath, 'utf-8');
-    } catch { /* empty */ }
-  }
+  const settings = readSettings(settingsPath);
+  const currentHooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
 
-  return registry.map((hook) => ({
-    name: hook.name,
-    description: hook.description,
-    fileInstalled: existsSync(join(hooksDir, hook.fileName)),
-    settingsRegistered: settingsStr.includes(hook.fileName),
-  }));
+  return registry.map((hook) => {
+    const cmd = hookCommand(hook);
+    const entries = currentHooks[hook.event] ?? [];
+    const settingsRegistered = entries.some((e) =>
+      e.hooks?.some((h) => h.command === cmd),
+    );
+
+    return {
+      name: hook.name,
+      description: hook.description,
+      fileInstalled: existsSync(join(hooksDir, hook.fileName)),
+      settingsRegistered,
+    };
+  });
 }

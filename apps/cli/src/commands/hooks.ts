@@ -4,6 +4,63 @@ import { HOOK_REGISTRY, findHookByName, HookDefinition } from '../hooks/hook-reg
 import { mergeHookSettings, removeHookSettings, getInstalledHooks } from '../utils/settings';
 import { findTemplateDir } from '../utils/template';
 
+export interface InstallResult {
+  filesInstalled: number;
+  settingsChanged: boolean;
+}
+
+export function installHookFiles(
+  hooks: HookDefinition[],
+  options: { silent?: boolean } = {},
+): InstallResult {
+  const cwd = process.cwd();
+  const hooksDir = join(cwd, '.claude', 'hooks');
+  const settingsPath = join(cwd, '.claude', 'settings.json');
+
+  const templateDir = findTemplateDir();
+  if (!templateDir) {
+    if (!options.silent) {
+      console.error('✗ 템플릿 디렉토리를 찾을 수 없습니다.');
+    }
+    return { filesInstalled: 0, settingsChanged: false };
+  }
+
+  mkdirSync(hooksDir, { recursive: true });
+
+  let installed = 0;
+  for (const hook of hooks) {
+    const dest = join(hooksDir, hook.fileName);
+    if (existsSync(dest)) {
+      if (!options.silent) {
+        console.log(`  - ${hook.name}: 이미 존재 (건너뜀)`);
+      }
+      continue;
+    }
+
+    const src = join(templateDir, 'hooks', hook.fileName);
+    if (!existsSync(src)) {
+      if (!options.silent) {
+        console.log(`  ⚠ ${hook.name}: 템플릿 없음`);
+      }
+      continue;
+    }
+
+    copyFileSync(src, dest);
+    chmodSync(dest, 0o755);
+    if (!options.silent) {
+      console.log(`  ✓ ${hook.name} 설치됨`);
+    }
+    installed++;
+  }
+
+  const settingsChanged = mergeHookSettings(settingsPath, hooks);
+  if (settingsChanged && !options.silent) {
+    console.log('✓ settings.json에 hooks 등록 완료');
+  }
+
+  return { filesInstalled: installed, settingsChanged };
+}
+
 export function runHooksList(): void {
   const cwd = process.cwd();
   const hooksDir = join(cwd, '.claude', 'hooks');
@@ -24,10 +81,6 @@ export function runHooksList(): void {
 }
 
 export function runHooksInstall(name?: string): void {
-  const cwd = process.cwd();
-  const hooksDir = join(cwd, '.claude', 'hooks');
-  const settingsPath = join(cwd, '.claude', 'settings.json');
-
   const hooks = name
     ? ([findHookByName(name)].filter(Boolean) as HookDefinition[])
     : HOOK_REGISTRY;
@@ -38,39 +91,8 @@ export function runHooksInstall(name?: string): void {
     process.exit(1);
   }
 
-  const templateDir = findTemplateDir();
-  if (!templateDir) {
-    console.error('✗ 템플릿 디렉토리를 찾을 수 없습니다.');
-    process.exit(1);
-  }
-
-  let installed = 0;
-  for (const hook of hooks) {
-    const dest = join(hooksDir, hook.fileName);
-    if (existsSync(dest)) {
-      console.log(`  - ${hook.name}: 이미 존재 (건너뜀)`);
-      continue;
-    }
-
-    const src = join(templateDir, 'hooks', hook.fileName);
-    if (!existsSync(src)) {
-      console.log(`  ⚠ ${hook.name}: 템플릿 없음`);
-      continue;
-    }
-
-    mkdirSync(hooksDir, { recursive: true });
-    copyFileSync(src, dest);
-    chmodSync(dest, 0o755);
-    console.log(`  ✓ ${hook.name} 설치됨`);
-    installed++;
-  }
-
-  const registered = mergeHookSettings(settingsPath, hooks);
-  if (registered) {
-    console.log('✓ settings.json에 hooks 등록 완료');
-  }
-
-  if (installed === 0 && !registered) {
+  const result = installHookFiles(hooks);
+  if (result.filesInstalled === 0 && !result.settingsChanged) {
     console.log('모든 hooks가 이미 설치되어 있습니다.');
   }
 }

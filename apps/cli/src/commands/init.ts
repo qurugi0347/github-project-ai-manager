@@ -1,12 +1,11 @@
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync, writeFileSync, mkdirSync, copyFileSync, chmodSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
 import { HOOK_REGISTRY } from '../hooks/hook-registry';
-import { mergeHookSettings } from '../utils/settings';
-import { findTemplateDir } from '../utils/template';
+import { installHookFiles } from './hooks';
 
 export function validateGhAuth(): string {
   try {
@@ -221,34 +220,12 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
   if (!skipHooks) {
     const installHooks = await prompt('? Claude Code Hooks를 설치하시겠습니까? (Y/n): ');
     if (installHooks.toLowerCase() !== 'n') {
-      const templateDir = findTemplateDir();
-      if (templateDir) {
-        const hooksDir = join(cwd, '.claude', 'hooks');
-        let hooksInstalled = false;
-
-        for (const hook of HOOK_REGISTRY) {
-          const dest = join(hooksDir, hook.fileName);
-          if (existsSync(dest)) continue;
-
-          const src = join(templateDir, 'hooks', hook.fileName);
-          if (!existsSync(src)) continue;
-
-          mkdirSync(hooksDir, { recursive: true });
-          copyFileSync(src, dest);
-          chmodSync(dest, 0o755);
-          hooksInstalled = true;
-        }
-
-        if (hooksInstalled) {
-          console.log('✓ Claude Code Hooks 설정 완료 (.claude/hooks/)');
-        }
-
-        // 10. settings.json에 Hooks 등록
-        const settingsPath = join(cwd, '.claude', 'settings.json');
-        const registered = mergeHookSettings(settingsPath, HOOK_REGISTRY);
-        if (registered) {
-          console.log('✓ Claude Code Settings에 Hooks 등록 완료 (.claude/settings.json)');
-        }
+      const result = installHookFiles(HOOK_REGISTRY, { silent: true });
+      if (result.filesInstalled > 0) {
+        console.log('✓ Claude Code Hooks 설정 완료 (.claude/hooks/)');
+      }
+      if (result.settingsChanged) {
+        console.log('✓ Claude Code Settings에 Hooks 등록 완료 (.claude/settings.json)');
       }
     }
   }
