@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Project } from '../project/project.entity';
 import { Label } from '../label/label.entity';
+import { Milestone } from '../milestone/milestone.entity';
 
 @Entity('tasks')
 export class Task {
@@ -65,6 +66,13 @@ export class Task {
 
   @Column({ name: 'is_dirty', default: false })
   isDirty: boolean;
+
+  @Column({ name: 'milestone_id', nullable: true })
+  milestoneId: number | null;
+
+  @ManyToOne(() => Milestone, { nullable: true })
+  @JoinColumn({ name: 'milestone_id' })
+  milestone: Milestone;
 
   @ManyToMany(() => Label)
   @JoinTable({

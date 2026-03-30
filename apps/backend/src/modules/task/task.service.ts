@@ -13,7 +13,7 @@ export class TaskService {
   async findAll(projectId: number): Promise<Task[]> {
     return this.taskRepo.find({
       where: { projectId },
-      relations: ['labels'],
+      relations: ['labels', 'milestone'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -21,7 +21,7 @@ export class TaskService {
   async findById(id: number, projectId: number): Promise<Task | null> {
     return this.taskRepo.findOne({
       where: { id, projectId },
-      relations: ['labels'],
+      relations: ['labels', 'milestone'],
     });
   }
 
