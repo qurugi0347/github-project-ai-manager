@@ -4,6 +4,8 @@ import { apiGet, apiPost } from '@/api/client';
 import type { Project, Task, Milestone } from '@/types';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
+import TaskDetailPanel from '@/components/TaskDetailPanel';
+import MilestoneDetailPanel from '@/components/MilestoneDetailPanel';
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +16,8 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -58,13 +62,16 @@ export default function ProjectPage() {
   };
 
   const handleMilestoneClick = (milestone: Milestone) => {
-    // TODO: filter tasks by milestone or open milestone detail
-    console.log('Milestone clicked:', milestone.title);
+    setSelectedMilestone(milestone);
   };
 
   const handleTaskClick = (task: Task) => {
-    // TODO: open task detail panel/modal
-    console.log('Task clicked:', task.title);
+    setSelectedTask(task);
+  };
+
+  const handleMilestoneTaskClick = (task: Task) => {
+    setSelectedMilestone(null);
+    setSelectedTask(task);
   };
 
   if (loading) {
@@ -146,6 +153,15 @@ export default function ProjectPage() {
         </h3>
         <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} />
       </div>
+
+      {/* Detail Panels */}
+      <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <MilestoneDetailPanel
+        milestone={selectedMilestone}
+        tasks={tasks}
+        onClose={() => setSelectedMilestone(null)}
+        onTaskClick={handleMilestoneTaskClick}
+      />
     </div>
   );
 }
