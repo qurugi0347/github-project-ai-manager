@@ -1,19 +1,21 @@
-import { Controller, Post, Req, Get } from '@nestjs/common';
+import { Controller, Post, Req, Query, BadRequestException } from '@nestjs/common';
 import { Request } from 'express';
 import { SyncService, SyncResult } from './sync.service';
-import { Project } from '../project/project.entity';
 
 @Controller('sync')
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
-  private getProject(req: Request): Project {
-    return (req as any).project;
+  private getProjectId(req: Request, queryProjectId?: string): number {
+    const project = (req as any).project;
+    if (project?.id) return project.id;
+    if (queryProjectId) return Number(queryProjectId);
+    throw new BadRequestException('projectId is required');
   }
 
   @Post('pull')
-  async pull(@Req() req: Request): Promise<SyncResult> {
-    const project = this.getProject(req);
-    return this.syncService.pullSync(project.id);
+  async pull(@Req() req: Request, @Query('projectId') projectId?: string): Promise<SyncResult> {
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    return this.syncService.pullSync(resolvedProjectId);
   }
 }

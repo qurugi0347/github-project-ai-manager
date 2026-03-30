@@ -47,7 +47,7 @@ export default function ProjectPage() {
 
     setSyncing(true);
     try {
-      await apiPost(`/sync/${id}`, {});
+      await apiPost(`/sync/pull?projectId=${id}`, {});
       const [taskData, milestoneData] = await Promise.all([
         apiGet<Task[]>(`/tasks?projectId=${id}`),
         apiGet<Milestone[]>(`/milestones?projectId=${id}`),
