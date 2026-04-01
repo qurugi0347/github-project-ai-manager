@@ -8,6 +8,11 @@ export interface Project {
   createdAt: string;
 }
 
+export interface Assignee {
+  login: string;
+  avatarUrl: string;
+}
+
 export interface Task {
   id: number;
   projectId: number;
@@ -17,7 +22,9 @@ export interface Task {
   contentType: string;
   milestoneId?: number;
   milestone?: Milestone;
-  assignees?: string[];
+  assignees?: (string | Assignee)[];
+  authorLogin?: string | null;
+  authorAvatarUrl?: string | null;
   priority?: string;
   labels?: Label[];
   branch?: string;
@@ -41,4 +48,23 @@ export interface Label {
   name: string;
   color?: string;
   description?: string;
+}
+
+/**
+ * Normalize assignees array to Assignee[] format.
+ * Handles both legacy string[] (login only) and new {login, avatarUrl}[] formats.
+ */
+export function normalizeAssignees(
+  assignees: (string | Assignee)[] | undefined,
+): Assignee[] {
+  if (!assignees || assignees.length === 0) return [];
+  return assignees.map((a) => {
+    if (typeof a === 'string') {
+      return { login: a, avatarUrl: `https://github.com/${a}.png?size=40` };
+    }
+    if (typeof a === 'object' && a !== null && 'login' in a) {
+      return a as Assignee;
+    }
+    return { login: 'unknown', avatarUrl: '' };
+  });
 }

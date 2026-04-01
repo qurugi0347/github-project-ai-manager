@@ -80,6 +80,8 @@ GitHub Project Item과 매핑되는 태스크 데이터를 저장합니다.
 | `assignees` | TEXT | DEFAULT '[]' | JSON 배열 (담당자 username 목록) |
 | `priority` | TEXT | | 우선순위 (nullable) |
 | `branch` | TEXT | | 연결된 Git 브랜치명 (nullable) |
+| `author_login` | TEXT | | Issue/PR 작성자 GitHub 로그인 (nullable) |
+| `author_avatar_url` | TEXT | | Issue/PR 작성자 프로필 이미지 URL (nullable) |
 | `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 생성 시각 |
 | `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 수정 시각 |
 | `github_created_at` | DATETIME | | GitHub 생성 시각 |
@@ -100,6 +102,8 @@ CREATE TABLE tasks (
     assignees TEXT DEFAULT '[]',
     priority TEXT,
     branch TEXT,
+    author_login TEXT,
+    author_avatar_url TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     github_created_at DATETIME,

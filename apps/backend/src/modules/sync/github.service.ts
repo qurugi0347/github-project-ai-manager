@@ -12,7 +12,8 @@ interface ProjectItem {
     headRefName?: string;
     linkedBranches?: { nodes: { ref: { name: string } }[] };
     labels?: { nodes: { name: string; color: string }[] };
-    assignees?: { nodes: { login: string }[] };
+    assignees?: { nodes: { login: string; avatarUrl: string }[] };
+    author?: { login: string; avatarUrl: string } | null;
     milestone?: {
       id: string;
       title: string;
@@ -108,11 +109,12 @@ export class GitHubService {
                     title
                     body
                     updatedAt
+                    author { login avatarUrl }
                     labels(first: 20) {
                       nodes { name color }
                     }
                     assignees(first: 10) {
-                      nodes { login }
+                      nodes { login avatarUrl }
                     }
                     milestone { id title description dueOn state number }
                     linkedBranches(first: 1) {
@@ -128,11 +130,12 @@ export class GitHubService {
                     body
                     updatedAt
                     headRefName
+                    author { login avatarUrl }
                     labels(first: 20) {
                       nodes { name color }
                     }
                     assignees(first: 10) {
-                      nodes { login }
+                      nodes { login avatarUrl }
                     }
                     milestone { id title description dueOn state number }
                   }

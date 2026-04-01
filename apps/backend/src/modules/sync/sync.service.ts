@@ -120,8 +120,15 @@ export class SyncService {
       );
       const status = statusField?.name || 'No Status';
 
-      // Assignees 추출
-      const assignees = item.content.assignees?.nodes.map((a) => a.login) || [];
+      // Assignees 추출 (login + avatarUrl)
+      const assignees = item.content.assignees?.nodes.map((a) => ({
+        login: a.login,
+        avatarUrl: a.avatarUrl,
+      })) || [];
+
+      // Author 추출
+      const authorLogin = item.content.author?.login ?? null;
+      const authorAvatarUrl = item.content.author?.avatarUrl ?? null;
 
       // Branch 추출
       const branch = contentType === 'PULL_REQUEST'
@@ -148,6 +155,8 @@ export class SyncService {
         existing.contentType = contentType;
         existing.assignees = assignees;
         existing.branch = branch;
+        existing.authorLogin = authorLogin;
+        existing.authorAvatarUrl = authorAvatarUrl;
         existing.milestoneId = milestoneId;
         existing.githubUpdatedAt = item.content.updatedAt ? new Date(item.content.updatedAt) : existing.githubUpdatedAt;
         existing.syncedAt = new Date();
@@ -165,6 +174,8 @@ export class SyncService {
         task.status = status;
         task.assignees = assignees;
         task.branch = branch;
+        task.authorLogin = authorLogin;
+        task.authorAvatarUrl = authorAvatarUrl;
         task.milestoneId = milestoneId;
         if (item.content.updatedAt) {
           task.githubCreatedAt = new Date(item.content.updatedAt);
