@@ -215,6 +215,31 @@ export class SyncService {
     return this.taskRepo.save(task);
   }
 
+  async getStatusOptions(projectDbId: number, force = false): Promise<string[]> {
+    const project = await this.projectService.findById(projectDbId);
+    if (!project) throw new Error(`Project #${projectDbId} not found`);
+
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    const isFresh = project.statusOptions?.length
+      && project.statusOptionsFetchedAt
+      && Date.now() - new Date(project.statusOptionsFetchedAt).getTime() < ONE_DAY;
+
+    if (!force && isFresh) {
+      return project.statusOptions!;
+    }
+
+    const { statusOptions } = await this.githubService.getProjectFields(
+      project.owner, project.ownerType, project.projectNumber,
+    );
+    const names = statusOptions.map((o) => o.name);
+
+    project.statusOptions = names;
+    project.statusOptionsFetchedAt = new Date();
+    await this.projectService.save(project);
+
+    return names;
+  }
+
   async deleteTaskOnGitHub(
     projectDbId: number,
     taskId: number,

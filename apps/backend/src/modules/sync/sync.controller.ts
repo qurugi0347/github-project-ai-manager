@@ -1,4 +1,4 @@
-import { Controller, Post, Req, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Req, Query, BadRequestException } from '@nestjs/common';
 import { Request } from 'express';
 import { SyncService, SyncResult } from './sync.service';
 
@@ -17,5 +17,15 @@ export class SyncController {
   async pull(@Req() req: Request, @Query('projectId') projectId?: string): Promise<SyncResult> {
     const resolvedProjectId = this.getProjectId(req, projectId);
     return this.syncService.pullSync(resolvedProjectId);
+  }
+
+  @Get('status-options')
+  async statusOptions(
+    @Req() req: Request,
+    @Query('projectId') projectId?: string,
+    @Query('force') force?: string,
+  ): Promise<string[]> {
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    return this.syncService.getStatusOptions(resolvedProjectId, force === 'true');
   }
 }
