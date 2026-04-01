@@ -18,6 +18,7 @@ export default function ProjectPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [statusColumns, setStatusColumns] = useState<string[]>([]);
+  const [milestoneFilter, setMilestoneFilter] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
@@ -171,7 +172,15 @@ export default function ProjectPage() {
         <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
           Tasks
         </h3>
-        <KanbanBoard tasks={tasks} columns={statusColumns} onTaskClick={handleTaskClick} onStatusChange={handleStatusChange} />
+        <KanbanBoard
+          tasks={milestoneFilter != null ? tasks.filter((t) => t.milestoneId === milestoneFilter) : tasks}
+          columns={statusColumns}
+          milestones={milestones}
+          activeMilestoneId={milestoneFilter}
+          onMilestoneFilterChange={setMilestoneFilter}
+          onTaskClick={handleTaskClick}
+          onStatusChange={handleStatusChange}
+        />
       </div>
 
       {/* Detail Panels */}

@@ -30,11 +30,19 @@ export default function MilestoneSummary({ milestones, onMilestoneClick }: Miles
     );
   }
 
+  const sorted = [...milestones].sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  });
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-2">
-      {milestones.map((ms) => {
+      {sorted.map((ms) => {
         const done = ms.doneCount ?? 0;
         const total = ms.taskCount ?? 0;
+        const isOverdue = ms.dueDate && ms.state !== 'CLOSED' && new Date(ms.dueDate) < new Date();
 
         return (
           <button
@@ -43,7 +51,12 @@ export default function MilestoneSummary({ milestones, onMilestoneClick }: Miles
             onClick={() => onMilestoneClick(ms)}
             className="flex-shrink-0 w-48 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer text-left"
           >
-            <p className="text-sm font-semibold text-gray-800 truncate mb-2">{ms.title}</p>
+            <p className="text-sm font-semibold text-gray-800 truncate mb-1">{ms.title}</p>
+            {ms.dueDate && (
+              <p className={`text-xs mb-2 ${isOverdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                Due {new Date(ms.dueDate).toLocaleDateString()}
+              </p>
+            )}
             <ProgressBar done={done} total={total} />
           </button>
         );
