@@ -66,7 +66,12 @@ export default function KanbanBoard({ tasks, columns, milestones, activeMileston
           >
             All
           </button>
-          {milestones.map((ms) => (
+          {[...milestones].sort((a, b) => {
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          }).map((ms) => (
             <button
               key={ms.id}
               type="button"
