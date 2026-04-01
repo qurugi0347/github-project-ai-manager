@@ -29,29 +29,45 @@ export class SyncService {
     private readonly projectService: ProjectService,
   ) {}
 
-  private async upsertMilestone(
+  private async batchUpsertMilestones(
     projectId: number,
-    gh: { id: string; title: string; description: string | null; dueOn: string | null; state: string },
-  ): Promise<Milestone> {
-    let milestone = await this.milestoneRepo.findOneBy({ githubMilestoneId: gh.id });
-
-    if (milestone) {
-      milestone.title = gh.title;
-      milestone.description = gh.description ?? '';
-      milestone.dueDate = gh.dueOn ? new Date(gh.dueOn) : null as any;
-      milestone.state = gh.state;
-    } else {
-      milestone = this.milestoneRepo.create({
-        githubMilestoneId: gh.id,
-        projectId,
-        title: gh.title,
-        description: gh.description ?? '',
-        dueDate: gh.dueOn ? new Date(gh.dueOn) : undefined,
-        state: gh.state,
-      });
+    items: Array<{ milestone?: { id: string; title: string; description: string | null; dueOn: string | null; state: string } | null }>,
+  ): Promise<Map<string, number>> {
+    const ghMilestones = new Map<string, { id: string; title: string; description: string | null; dueOn: string | null; state: string }>();
+    for (const item of items) {
+      if (item.milestone) {
+        ghMilestones.set(item.milestone.id, item.milestone);
+      }
     }
 
-    return this.milestoneRepo.save(milestone);
+    const result = new Map<string, number>();
+    if (ghMilestones.size === 0) return result;
+
+    const existing = await this.milestoneRepo.findBy({ projectId });
+    const existingMap = new Map(existing.map((m) => [m.githubMilestoneId, m]));
+
+    for (const [ghId, gh] of ghMilestones) {
+      let milestone = existingMap.get(ghId);
+      if (milestone) {
+        milestone.title = gh.title;
+        milestone.description = gh.description ?? '';
+        milestone.dueDate = gh.dueOn ? new Date(gh.dueOn) : (null as any);
+        milestone.state = gh.state;
+      } else {
+        milestone = this.milestoneRepo.create({
+          githubMilestoneId: ghId,
+          projectId,
+          title: gh.title,
+          description: gh.description ?? '',
+          dueDate: gh.dueOn ? new Date(gh.dueOn) : undefined,
+          state: gh.state,
+        });
+      }
+      const saved = await this.milestoneRepo.save(milestone);
+      result.set(ghId, saved.id);
+    }
+
+    return result;
   }
 
   async pullSync(projectDbId: number): Promise<SyncResult> {
@@ -83,6 +99,12 @@ export class SyncService {
     let updated = 0;
     const remoteItemIds: string[] = [];
 
+    // Milestone 일괄 upsert (N+1 방지)
+    const milestoneMap = await this.batchUpsertMilestones(
+      project.id,
+      items.filter((i) => i.content).map((i) => ({ milestone: i.content!.milestone })),
+    );
+
     for (const item of items) {
       if (!item.content) continue;
 
@@ -106,12 +128,10 @@ export class SyncService {
         ? item.content.headRefName ?? null
         : item.content.linkedBranches?.nodes?.[0]?.ref?.name ?? null;
 
-      // Milestone 매핑
-      let milestoneId: number | null = null;
-      if (item.content.milestone) {
-        const milestone = await this.upsertMilestone(project.id, item.content.milestone);
-        milestoneId = milestone.id;
-      }
+      // Milestone 매핑 (사전 batch upsert된 Map에서 조회)
+      const milestoneId = item.content.milestone
+        ? milestoneMap.get(item.content.milestone.id) ?? null
+        : null;
 
       remoteItemIds.push(item.id);
 

@@ -42,7 +42,7 @@ export default function MilestoneSummary({ milestones, onMilestoneClick }: Miles
       {sorted.map((ms) => {
         const done = ms.doneCount ?? 0;
         const total = ms.taskCount ?? 0;
-        const isOverdue = ms.dueDate && new Date(ms.dueDate) < new Date();
+        const isOverdue = ms.dueDate && ms.state !== 'CLOSED' && new Date(ms.dueDate) < new Date();
 
         return (
           <button
