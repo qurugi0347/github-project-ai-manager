@@ -9,6 +9,8 @@ interface ProjectItem {
     title?: string;
     body?: string;
     updatedAt?: string;
+    headRefName?: string;
+    linkedBranches?: { nodes: { ref: { name: string } }[] };
     labels?: { nodes: { name: string; color: string }[] };
     assignees?: { nodes: { login: string }[] };
     milestone?: { title: string } | null;
@@ -106,11 +108,19 @@ export class GitHubService {
                       nodes { login }
                     }
                     milestone { title }
+                    linkedBranches(first: 1) {
+                      nodes {
+                        ref {
+                          name
+                        }
+                      }
+                    }
                   }
                   ... on PullRequest {
                     title
                     body
                     updatedAt
+                    headRefName
                     labels(first: 20) {
                       nodes { name color }
                     }

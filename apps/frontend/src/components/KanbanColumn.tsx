@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core';
 import type { Task } from '@/types';
 import TaskCard from '@/components/TaskCard';
 
@@ -14,10 +15,13 @@ const columnHeaderColor: Record<string, string> = {
 };
 
 export default function KanbanColumn({ title, tasks, onTaskClick }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: title });
   const dotColor = columnHeaderColor[title] ?? 'bg-gray-400';
 
+  const bgClass = isOver ? 'bg-blue-50 border-2 border-blue-300' : 'bg-gray-50';
+
   return (
-    <div className="flex-1 min-w-[280px] bg-gray-50 rounded-lg p-3">
+    <div ref={setNodeRef} className={`flex-1 min-w-[280px] rounded-lg p-3 transition-colors ${bgClass}`}>
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
         <h3 className="text-sm font-semibold text-gray-700">{title}</h3>

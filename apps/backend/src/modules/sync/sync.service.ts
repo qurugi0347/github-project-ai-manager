@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../task/task.entity';
@@ -73,6 +73,11 @@ export class SyncService {
       // Assignees 추출
       const assignees = item.content.assignees?.nodes.map((a) => a.login) || [];
 
+      // Branch 추출
+      const branch = contentType === 'PULL_REQUEST'
+        ? item.content.headRefName ?? null
+        : item.content.linkedBranches?.nodes?.[0]?.ref?.name ?? null;
+
       remoteItemIds.push(item.id);
 
       const existing = await this.taskRepo.findOneBy({
@@ -87,6 +92,7 @@ export class SyncService {
         existing.status = status;
         existing.contentType = contentType;
         existing.assignees = assignees;
+        existing.branch = branch;
         existing.githubUpdatedAt = item.content.updatedAt ? new Date(item.content.updatedAt) : existing.githubUpdatedAt;
         existing.syncedAt = new Date();
         existing.isDirty = false;
@@ -102,6 +108,7 @@ export class SyncService {
         if (item.content.body) task.body = item.content.body;
         task.status = status;
         task.assignees = assignees;
+        task.branch = branch;
         if (item.content.updatedAt) {
           task.githubCreatedAt = new Date(item.content.updatedAt);
           task.githubUpdatedAt = new Date(item.content.updatedAt);
@@ -206,6 +213,31 @@ export class SyncService {
     task.status = status;
     task.syncedAt = new Date();
     return this.taskRepo.save(task);
+  }
+
+  async getStatusOptions(projectDbId: number, force = false): Promise<string[]> {
+    const project = await this.projectService.findById(projectDbId);
+    if (!project) throw new NotFoundException(`Project #${projectDbId} not found`);
+
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    const isFresh = project.statusOptions?.length
+      && project.statusOptionsFetchedAt
+      && Date.now() - new Date(project.statusOptionsFetchedAt).getTime() < ONE_DAY;
+
+    if (!force && isFresh) {
+      return project.statusOptions!;
+    }
+
+    const { statusOptions } = await this.githubService.getProjectFields(
+      project.owner, project.ownerType, project.projectNumber,
+    );
+    const names = statusOptions.map((o) => o.name);
+
+    project.statusOptions = names;
+    project.statusOptionsFetchedAt = new Date();
+    await this.projectService.save(project);
+
+    return names;
   }
 
   async deleteTaskOnGitHub(

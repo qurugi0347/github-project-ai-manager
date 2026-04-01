@@ -20,6 +20,7 @@ export interface Task {
   assignees?: string[];
   priority?: string;
   labels?: Label[];
+  branch?: string;
   createdAt: string;
   updatedAt: string;
 }

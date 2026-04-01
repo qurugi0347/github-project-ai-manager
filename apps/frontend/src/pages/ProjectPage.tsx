@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, apiPatch } from '@/api/client';
 import type { Project, Task, Milestone } from '@/types';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -15,7 +15,9 @@ export default function ProjectPage() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [statusColumns, setStatusColumns] = useState<string[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
@@ -32,6 +34,9 @@ export default function ProjectPage() {
         setProject(projectData);
         setTasks(taskData);
         setMilestones(milestoneData);
+
+        const columns = await apiGet<string[]>(`/sync/status-options?projectId=${id}`).catch(() => [] as string[]);
+        setStatusColumns(columns);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load project');
       } finally {
@@ -48,17 +53,32 @@ export default function ProjectPage() {
     setSyncing(true);
     try {
       await apiPost(`/sync/pull?projectId=${id}`, {});
-      const [taskData, milestoneData] = await Promise.all([
+      const [taskData, milestoneData, columns] = await Promise.all([
         apiGet<Task[]>(`/tasks?projectId=${id}`),
         apiGet<Milestone[]>(`/milestones?projectId=${id}`),
+        apiGet<string[]>(`/sync/status-options?projectId=${id}&force=true`),
       ]);
       setTasks(taskData);
       setMilestones(milestoneData);
+      setStatusColumns(columns);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleStatusChange = (taskId: number, newStatus: string) => {
+    const previousTasks = tasks;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
+    );
+
+    apiPatch(`/tasks/${taskId}?projectId=${id}`, { status: newStatus })
+      .catch((err) => {
+        setTasks(previousTasks);
+        setToast(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      });
   };
 
   const handleMilestoneClick = (milestone: Milestone) => {
@@ -151,7 +171,7 @@ export default function ProjectPage() {
         <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
           Tasks
         </h3>
-        <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} />
+        <KanbanBoard tasks={tasks} columns={statusColumns} onTaskClick={handleTaskClick} onStatusChange={handleStatusChange} />
       </div>
 
       {/* Detail Panels */}
@@ -162,6 +182,16 @@ export default function ProjectPage() {
         onClose={() => setSelectedMilestone(null)}
         onTaskClick={handleMilestoneTaskClick}
       />
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-50">
+          <span className="text-sm">{toast}</span>
+          <button type="button" onClick={() => setToast(null)} className="text-white/80 hover:text-white">
+            &times;
+          </button>
+        </div>
+      )}
     </div>
   );
 }

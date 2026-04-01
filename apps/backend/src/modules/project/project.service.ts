@@ -45,4 +45,8 @@ export class ProjectService {
   async findByOwnerAndNumber(owner: string, projectNumber: number): Promise<Project | null> {
     return this.projectRepo.findOneBy({ owner, projectNumber });
   }
+
+  async save(project: Project): Promise<Project> {
+    return this.projectRepo.save(project);
+  }
 }

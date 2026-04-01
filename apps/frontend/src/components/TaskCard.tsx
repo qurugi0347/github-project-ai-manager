@@ -1,8 +1,11 @@
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/types';
 
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  isDragOverlay?: boolean;
 }
 
 const contentTypeBadgeColor: Record<string, string> = {
@@ -11,14 +14,29 @@ const contentTypeBadgeColor: Record<string, string> = {
   PullRequest: 'bg-green-100 text-green-700',
 };
 
-export default function TaskCard({ task, onClick }: TaskCardProps) {
+export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+    disabled: isDragOverlay,
+  });
+
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+
   const badgeClass = contentTypeBadgeColor[task.contentType] ?? 'bg-gray-100 text-gray-600';
 
   return (
-    <button
-      type="button"
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="w-full text-left bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onClick();
+      }}
+      className={`w-full text-left bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs text-gray-400 font-mono">#{task.id}</span>
@@ -28,6 +46,12 @@ export default function TaskCard({ task, onClick }: TaskCardProps) {
       </div>
       <p className="text-sm font-medium text-gray-900 leading-snug mb-2">{task.title}</p>
       <div className="flex items-center gap-2 flex-wrap">
+        {task.branch && (
+          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1">
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.492 2.492 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25zM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM3.5 3.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0z"/></svg>
+            {task.branch}
+          </span>
+        )}
         {task.milestone && (
           <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
             {task.milestone.title}
@@ -46,6 +70,6 @@ export default function TaskCard({ task, onClick }: TaskCardProps) {
           </span>
         ))}
       </div>
-    </button>
+    </div>
   );
 }
