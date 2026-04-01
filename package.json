@@ -16,7 +16,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev:backend": "yarn workspace @gpm/backend start:dev",
+    "dev:backend": "yarn workspace @gpm/backend dev",
     "dev:frontend": "yarn workspace @gpm/frontend dev",
     "build:backend": "yarn workspace @gpm/backend build",
     "build:frontend": "yarn workspace @gpm/frontend build",
