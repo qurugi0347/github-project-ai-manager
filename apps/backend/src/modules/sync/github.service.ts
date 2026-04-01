@@ -13,7 +13,14 @@ interface ProjectItem {
     linkedBranches?: { nodes: { ref: { name: string } }[] };
     labels?: { nodes: { name: string; color: string }[] };
     assignees?: { nodes: { login: string }[] };
-    milestone?: { title: string } | null;
+    milestone?: {
+      id: string;
+      title: string;
+      description: string | null;
+      dueOn: string | null;
+      state: string;
+      number: number;
+    } | null;
   } | null;
   fieldValues: {
     nodes: Array<{
@@ -107,7 +114,7 @@ export class GitHubService {
                     assignees(first: 10) {
                       nodes { login }
                     }
-                    milestone { title }
+                    milestone { id title description dueOn state number }
                     linkedBranches(first: 1) {
                       nodes {
                         ref {
@@ -127,7 +134,7 @@ export class GitHubService {
                     assignees(first: 10) {
                       nodes { login }
                     }
-                    milestone { title }
+                    milestone { id title description dueOn state number }
                   }
                 }
                 fieldValues(first: 20) {

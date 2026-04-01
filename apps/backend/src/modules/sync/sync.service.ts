@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../task/task.entity';
+import { Milestone } from '../milestone/milestone.entity';
 import { SyncLog } from './sync-log.entity';
 import { GitHubService } from './github.service';
 import { ProjectService } from '../project/project.service';
@@ -22,9 +23,36 @@ export class SyncService {
     private readonly taskRepo: Repository<Task>,
     @InjectRepository(SyncLog)
     private readonly syncLogRepo: Repository<SyncLog>,
+    @InjectRepository(Milestone)
+    private readonly milestoneRepo: Repository<Milestone>,
     private readonly githubService: GitHubService,
     private readonly projectService: ProjectService,
   ) {}
+
+  private async upsertMilestone(
+    projectId: number,
+    gh: { id: string; title: string; description: string | null; dueOn: string | null; state: string },
+  ): Promise<Milestone> {
+    let milestone = await this.milestoneRepo.findOneBy({ githubMilestoneId: gh.id });
+
+    if (milestone) {
+      milestone.title = gh.title;
+      milestone.description = gh.description ?? '';
+      milestone.dueDate = gh.dueOn ? new Date(gh.dueOn) : null as any;
+      milestone.state = gh.state;
+    } else {
+      milestone = this.milestoneRepo.create({
+        githubMilestoneId: gh.id,
+        projectId,
+        title: gh.title,
+        description: gh.description ?? '',
+        dueDate: gh.dueOn ? new Date(gh.dueOn) : undefined,
+        state: gh.state,
+      });
+    }
+
+    return this.milestoneRepo.save(milestone);
+  }
 
   async pullSync(projectDbId: number): Promise<SyncResult> {
     const project = await this.projectService.findById(projectDbId);
@@ -78,6 +106,13 @@ export class SyncService {
         ? item.content.headRefName ?? null
         : item.content.linkedBranches?.nodes?.[0]?.ref?.name ?? null;
 
+      // Milestone 매핑
+      let milestoneId: number | null = null;
+      if (item.content.milestone) {
+        const milestone = await this.upsertMilestone(project.id, item.content.milestone);
+        milestoneId = milestone.id;
+      }
+
       remoteItemIds.push(item.id);
 
       const existing = await this.taskRepo.findOneBy({
@@ -93,6 +128,7 @@ export class SyncService {
         existing.contentType = contentType;
         existing.assignees = assignees;
         existing.branch = branch;
+        existing.milestoneId = milestoneId;
         existing.githubUpdatedAt = item.content.updatedAt ? new Date(item.content.updatedAt) : existing.githubUpdatedAt;
         existing.syncedAt = new Date();
         existing.isDirty = false;
@@ -109,6 +145,7 @@ export class SyncService {
         task.status = status;
         task.assignees = assignees;
         task.branch = branch;
+        task.milestoneId = milestoneId;
         if (item.content.updatedAt) {
           task.githubCreatedAt = new Date(item.content.updatedAt);
           task.githubUpdatedAt = new Date(item.content.updatedAt);

@@ -15,7 +15,7 @@ export class MilestoneService {
 
   async findAllByProject(
     projectId: number,
-  ): Promise<(Milestone & { taskCount: { total: number; done: number } })[]> {
+  ): Promise<(Milestone & { taskCount: number; doneCount: number })[]> {
     const milestones = await this.milestoneRepo.find({
       where: { projectId },
       order: { dueDate: 'ASC' },
@@ -40,10 +40,14 @@ export class MilestoneService {
       counts.map((c) => [c.milestoneId, { total: Number(c.total), done: Number(c.doneCount) }]),
     );
 
-    return milestones.map((milestone) => ({
-      ...milestone,
-      taskCount: countMap.get(milestone.id) ?? { total: 0, done: 0 },
-    }));
+    return milestones.map((milestone) => {
+      const counts = countMap.get(milestone.id) ?? { total: 0, done: 0 };
+      return {
+        ...milestone,
+        taskCount: counts.total,
+        doneCount: counts.done,
+      };
+    });
   }
 
   async findOne(
