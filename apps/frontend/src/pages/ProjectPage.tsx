@@ -15,6 +15,7 @@ export default function ProjectPage() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [statusColumns, setStatusColumns] = useState<string[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -25,15 +26,16 @@ export default function ProjectPage() {
 
     const load = async () => {
       try {
-        const [projectData, taskData, milestoneData, columns] = await Promise.all([
+        const [projectData, taskData, milestoneData] = await Promise.all([
           apiGet<Project>(`/projects/${id}`),
           apiGet<Task[]>(`/tasks?projectId=${id}`),
           apiGet<Milestone[]>(`/milestones?projectId=${id}`),
-          apiGet<string[]>(`/sync/status-options?projectId=${id}`),
         ]);
         setProject(projectData);
         setTasks(taskData);
         setMilestones(milestoneData);
+
+        const columns = await apiGet<string[]>(`/sync/status-options?projectId=${id}`).catch(() => [] as string[]);
         setStatusColumns(columns);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load project');
@@ -73,8 +75,9 @@ export default function ProjectPage() {
     );
 
     apiPatch(`/tasks/${taskId}?projectId=${id}`, { status: newStatus })
-      .catch(() => {
+      .catch((err) => {
         setTasks(previousTasks);
+        setToast(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
       });
   };
 
@@ -179,6 +182,16 @@ export default function ProjectPage() {
         onClose={() => setSelectedMilestone(null)}
         onTaskClick={handleMilestoneTaskClick}
       />
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-50">
+          <span className="text-sm">{toast}</span>
+          <button type="button" onClick={() => setToast(null)} className="text-white/80 hover:text-white">
+            &times;
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../task/task.entity';
@@ -217,7 +217,7 @@ export class SyncService {
 
   async getStatusOptions(projectDbId: number, force = false): Promise<string[]> {
     const project = await this.projectService.findById(projectDbId);
-    if (!project) throw new Error(`Project #${projectDbId} not found`);
+    if (!project) throw new NotFoundException(`Project #${projectDbId} not found`);
 
     const ONE_DAY = 24 * 60 * 60 * 1000;
     const isFresh = project.statusOptions?.length
