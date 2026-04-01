@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/types';
+import { normalizeAssignees } from '@/types';
 
 interface TaskCardProps {
   task: Task;
@@ -23,6 +24,9 @@ export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   const badgeClass = contentTypeBadgeColor[task.contentType] ?? 'bg-gray-100 text-gray-600';
+  const assignees = normalizeAssignees(task.assignees);
+  const displayAssignees = assignees.slice(0, 3);
+  const extraCount = assignees.length - 3;
 
   return (
     <div
@@ -70,6 +74,35 @@ export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps
           </span>
         ))}
       </div>
+      {/* Author + Assignees avatars */}
+      {(task.authorAvatarUrl || assignees.length > 0) && (
+        <div className="flex items-center mt-2 pt-2 border-t border-gray-100">
+          {task.authorAvatarUrl && (
+            <img
+              src={task.authorAvatarUrl}
+              alt={task.authorLogin ?? 'author'}
+              title={task.authorLogin ?? 'author'}
+              className="w-5 h-5 rounded-full ring-1 ring-white"
+            />
+          )}
+          {assignees.length > 0 && (
+            <div className="flex items-center ml-auto -space-x-1.5">
+              {displayAssignees.map((a) => (
+                <img
+                  key={a.login}
+                  src={a.avatarUrl}
+                  alt={a.login}
+                  title={a.login}
+                  className="w-5 h-5 rounded-full ring-1 ring-white"
+                />
+              ))}
+              {extraCount > 0 && (
+                <span className="text-xs text-gray-500 pl-1.5">+{extraCount}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

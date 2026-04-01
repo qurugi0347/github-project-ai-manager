@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '@/types';
+import { normalizeAssignees } from '@/types';
 
 interface TaskDetailPanelProps {
   task: Task | null;
@@ -133,14 +134,36 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
           </div>
         )}
 
+        {/* Author */}
+        {task.authorLogin && (
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Author</p>
+            <div className="flex items-center gap-2">
+              {task.authorAvatarUrl && (
+                <img
+                  src={task.authorAvatarUrl}
+                  alt={task.authorLogin}
+                  className="w-6 h-6 rounded-full"
+                />
+              )}
+              <span className="text-sm text-gray-700">{task.authorLogin}</span>
+            </div>
+          </div>
+        )}
+
         {/* Assignees */}
         {task.assignees && task.assignees.length > 0 && (
           <div className="mb-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assignees</p>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {task.assignees.map((assignee) => (
-                <span key={assignee} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                  {assignee}
+            <div className="flex items-center gap-2 flex-wrap">
+              {normalizeAssignees(task.assignees).map((assignee) => (
+                <span key={assignee.login} className="inline-flex items-center gap-1.5 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                  <img
+                    src={assignee.avatarUrl}
+                    alt={assignee.login}
+                    className="w-4 h-4 rounded-full"
+                  />
+                  {assignee.login}
                 </span>
               ))}
             </div>

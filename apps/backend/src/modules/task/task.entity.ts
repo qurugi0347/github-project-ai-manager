@@ -44,7 +44,7 @@ export class Task {
   status: string;
 
   @Column({ type: 'simple-json', default: '[]' })
-  assignees: string[];
+  assignees: Array<{ login: string; avatarUrl: string }> | string[];
 
   @Column({ nullable: true })
   priority: string;
@@ -69,6 +69,12 @@ export class Task {
 
   @Column({ type: 'varchar', nullable: true })
   branch: string | null;
+
+  @Column({ name: 'author_login', type: 'varchar', nullable: true })
+  authorLogin: string | null;
+
+  @Column({ name: 'author_avatar_url', type: 'varchar', nullable: true })
+  authorAvatarUrl: string | null;
 
   @Column({ name: 'milestone_id', nullable: true })
   milestoneId: number | null;
