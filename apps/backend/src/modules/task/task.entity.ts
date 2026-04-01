@@ -67,7 +67,7 @@ export class Task {
   @Column({ name: 'is_dirty', default: false })
   isDirty: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   branch: string | null;
 
   @Column({ name: 'milestone_id', nullable: true })

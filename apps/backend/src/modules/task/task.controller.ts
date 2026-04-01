@@ -15,7 +15,6 @@ import {
 import { Request } from 'express';
 import { TaskService } from './task.service';
 import { SyncService } from '../sync/sync.service';
-import { Project } from '../project/project.entity';
 
 @Controller('tasks')
 export class TaskController {
@@ -23,10 +22,6 @@ export class TaskController {
     private readonly taskService: TaskService,
     private readonly syncService: SyncService,
   ) {}
-
-  private getProject(req: Request): Project {
-    return (req as any).project;
-  }
 
   private getProjectId(req: Request, queryProjectId?: string): number {
     const project = (req as any).project;
@@ -46,9 +41,13 @@ export class TaskController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    const project = this.getProject(req);
-    const task = await this.taskService.findById(id, project.id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('projectId') projectId: string | undefined,
+    @Req() req: Request,
+  ) {
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    const task = await this.taskService.findById(id, resolvedProjectId);
     if (!task) throw new NotFoundException(`Task #${id} not found`);
     return task;
   }
@@ -56,34 +55,40 @@ export class TaskController {
   @Post()
   async create(
     @Body() body: { title: string; body?: string },
+    @Query('projectId') projectId: string | undefined,
     @Req() req: Request,
   ) {
-    const project = this.getProject(req);
-    return this.syncService.createTaskOnGitHub(project.id, body.title, body.body);
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    return this.syncService.createTaskOnGitHub(resolvedProjectId, body.title, body.body);
   }
 
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: Partial<{ title: string; body: string; status: string }>,
+    @Query('projectId') projectId: string | undefined,
     @Req() req: Request,
   ) {
-    const project = this.getProject(req);
+    const resolvedProjectId = this.getProjectId(req, projectId);
     if (body.status) {
-      const task = await this.syncService.updateTaskStatusOnGitHub(project.id, id, body.status);
+      const task = await this.syncService.updateTaskStatusOnGitHub(resolvedProjectId, id, body.status);
       if (!task) throw new NotFoundException(`Task #${id} not found`);
       return task;
     }
     // title/body 등 로컬 필드 업데이트 (GitHub 반영은 추후)
-    const task = await this.taskService.update(id, project.id, body);
+    const task = await this.taskService.update(id, resolvedProjectId, body);
     if (!task) throw new NotFoundException(`Task #${id} not found`);
     return task;
   }
 
   @Delete(':id')
-  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    const project = this.getProject(req);
-    const deleted = await this.syncService.deleteTaskOnGitHub(project.id, id);
+  async delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('projectId') projectId: string | undefined,
+    @Req() req: Request,
+  ) {
+    const resolvedProjectId = this.getProjectId(req, projectId);
+    const deleted = await this.syncService.deleteTaskOnGitHub(resolvedProjectId, id);
     if (!deleted) throw new NotFoundException(`Task #${id} not found`);
     return { deleted: true };
   }

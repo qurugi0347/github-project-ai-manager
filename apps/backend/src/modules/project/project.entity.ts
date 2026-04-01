@@ -36,6 +36,12 @@ export class Project {
   @Column({ name: 'github_project_id', nullable: true })
   githubProjectId: string;
 
+  @Column({ name: 'status_options', type: 'simple-json', nullable: true })
+  statusOptions: string[] | null;
+
+  @Column({ name: 'status_options_fetched_at', type: 'datetime', nullable: true })
+  statusOptionsFetchedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
