@@ -44,7 +44,7 @@ export class Task {
   status: string;
 
   @Column({ type: 'simple-json', default: '[]' })
-  assignees: Array<{ login: string; avatarUrl: string }> | string[];
+  assignees: Array<{ login: string; avatarUrl: string }>;
 
   @Column({ nullable: true })
   priority: string;

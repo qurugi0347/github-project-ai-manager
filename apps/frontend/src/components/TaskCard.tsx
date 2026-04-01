@@ -3,6 +3,18 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/types';
 import { normalizeAssignees } from '@/types';
 
+function AvatarImg({ src, alt, title, className }: { src: string; alt: string; title: string; className: string }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      title={title}
+      className={className}
+      onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.insertAdjacentHTML('afterend', `<span class="${className} bg-gray-300 text-gray-600 flex items-center justify-center text-[10px] font-medium" title="${title}">${alt[0]?.toUpperCase() ?? '?'}</span>`); }}
+    />
+  );
+}
+
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
@@ -78,7 +90,7 @@ export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps
       {(task.authorAvatarUrl || assignees.length > 0) && (
         <div className="flex items-center mt-2 pt-2 border-t border-gray-100">
           {task.authorAvatarUrl && (
-            <img
+            <AvatarImg
               src={task.authorAvatarUrl}
               alt={task.authorLogin ?? 'author'}
               title={task.authorLogin ?? 'author'}
@@ -88,7 +100,7 @@ export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps
           {assignees.length > 0 && (
             <div className="flex items-center ml-auto -space-x-1.5">
               {displayAssignees.map((a) => (
-                <img
+                <AvatarImg
                   key={a.login}
                   src={a.avatarUrl}
                   alt={a.login}

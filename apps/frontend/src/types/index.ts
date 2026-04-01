@@ -57,14 +57,14 @@ export interface Label {
 export function normalizeAssignees(
   assignees: (string | Assignee)[] | undefined,
 ): Assignee[] {
-  if (!assignees) return [];
+  if (!assignees || assignees.length === 0) return [];
   return assignees.map((a) => {
     if (typeof a === 'string') {
-      return {
-        login: a,
-        avatarUrl: `https://github.com/${a}.png?size=40`,
-      };
+      return { login: a, avatarUrl: `https://github.com/${a}.png?size=40` };
     }
-    return a;
+    if (typeof a === 'object' && a !== null && 'login' in a) {
+      return a as Assignee;
+    }
+    return { login: 'unknown', avatarUrl: '' };
   });
 }

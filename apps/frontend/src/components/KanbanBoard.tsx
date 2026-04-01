@@ -18,10 +18,9 @@ interface KanbanBoardProps {
 type SortOption = 'newest' | 'oldest' | 'priority' | 'title';
 
 const PRIORITY_ORDER: Record<string, number> = {
-  Urgent: 0,
-  High: 1,
-  Medium: 2,
-  Low: 3,
+  P0: 0,
+  P1: 1,
+  P2: 2,
 };
 
 function sortTasks(tasks: Task[], option: SortOption): Task[] {
