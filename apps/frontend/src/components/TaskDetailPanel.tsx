@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Task } from '@/types';
 import { normalizeAssignees } from '@/types';
 
@@ -174,10 +176,8 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
         {task.body && (
           <div className="mb-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description</p>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
-                {task.body}
-              </pre>
+            <div className="bg-gray-50 rounded-lg p-3 prose prose-sm max-w-none text-gray-700">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.body}</ReactMarkdown>
             </div>
           </div>
         )}
