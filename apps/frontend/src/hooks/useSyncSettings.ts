@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useSyncExternalStore, useCallback } from 'react';
 
 const STORAGE_KEY = 'gpm-sync-settings';
 
 export interface SyncSettings {
-  interval: number; // 초 단위, 기본 300 (5분)
-  auto: boolean; // 자동 폴링 활성화, 기본 true
-  onFocus: boolean; // 탭 복귀 시 즉시 동기화, 기본 true
+  interval: number;
+  auto: boolean;
+  onFocus: boolean;
 }
 
 const DEFAULTS: SyncSettings = {
@@ -14,7 +14,7 @@ const DEFAULTS: SyncSettings = {
   onFocus: true,
 };
 
-function loadSettings(): SyncSettings {
+function loadFromStorage(): SyncSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return DEFAULTS;
@@ -24,15 +24,25 @@ function loadSettings(): SyncSettings {
   }
 }
 
+let currentSettings: SyncSettings = loadFromStorage();
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+function getSnapshot(): SyncSettings {
+  return currentSettings;
+}
+
 export function useSyncSettings() {
-  const [settings, setSettings] = useState<SyncSettings>(loadSettings);
+  const settings = useSyncExternalStore(subscribe, getSnapshot);
 
   const updateSettings = useCallback((partial: Partial<SyncSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...partial };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    currentSettings = { ...currentSettings, ...partial };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSettings));
+    listeners.forEach((l) => l());
   }, []);
 
   return { settings, updateSettings };

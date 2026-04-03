@@ -33,7 +33,7 @@ export default function AutoSyncIndicator({
       <span
         className={`inline-block w-1.5 h-1.5 rounded-full ${
           isSyncing
-            ? 'bg-green-400 animate-pulse'
+            ? 'bg-blue-400 animate-pulse'
             : hasError
               ? 'bg-orange-400'
               : 'bg-green-400'

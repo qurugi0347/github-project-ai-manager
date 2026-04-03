@@ -30,11 +30,9 @@ export function useMilestonesQuery(projectId: number) {
 export function useStatusColumnsQuery(projectId: number) {
   return useQuery({
     queryKey: queryKeys.statusColumns.all(projectId),
-    queryFn: () =>
-      apiGet<string[]>(`/sync/status-options?projectId=${projectId}`).catch(
-        () => [] as string[],
-      ),
+    queryFn: () => apiGet<string[]>(`/sync/status-options?projectId=${projectId}`),
     enabled: !!projectId,
+    retry: 0,
   });
 }
 

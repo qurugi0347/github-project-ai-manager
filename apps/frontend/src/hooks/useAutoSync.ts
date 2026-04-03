@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSyncMutation } from './useSyncMutation';
 import { useSyncSettings } from './useSyncSettings';
 
-const MAX_INTERVAL = 1800; // 최대 30분 (초)
+const MAX_INTERVAL = 1800;
 
 export interface AutoSyncState {
   isPolling: boolean;
   isSyncing: boolean;
   lastSyncAt: Date | null;
-  nextSyncIn: number | null; // 다음 sync까지 남은 초
+  nextSyncIn: number | null;
   hasError: boolean;
   consecutiveErrors: number;
 }
@@ -20,43 +20,56 @@ export function useAutoSync(projectId: number) {
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [nextSyncIn, setNextSyncIn] = useState<number | null>(null);
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isVisibleRef = useRef(true);
-  const isMountedRef = useRef(true);
 
-  // 현재 유효 interval 계산 (에러 백오프 적용)
-  const getEffectiveInterval = useCallback(() => {
-    const base = settings.interval;
-    if (consecutiveErrors === 0) return base;
-    return Math.min(base * Math.pow(2, consecutiveErrors), MAX_INTERVAL);
-  }, [settings.interval, consecutiveErrors]);
+  // ref로 안정화 (무한 루프 방지)
+  const syncMutateRef = useRef(syncMutation.mutate);
+  syncMutateRef.current = syncMutation.mutate;
+  const isPendingRef = useRef(syncMutation.isPending);
+  isPendingRef.current = syncMutation.isPending;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const consecutiveErrorsRef = useRef(consecutiveErrors);
+  consecutiveErrorsRef.current = consecutiveErrors;
 
-  // sync 실행 함수
+  const clearTimers = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    timerRef.current = null;
+    countdownRef.current = null;
+  }, []);
+
+  // sync 실행 (의존성 없음 - ref 사용)
   const doSync = useCallback(() => {
-    if (syncMutation.isPending || !isMountedRef.current) return;
+    if (isPendingRef.current) return;
 
-    syncMutation.mutate(undefined, {
+    syncMutateRef.current(undefined, {
       onSuccess: () => {
-        if (!isMountedRef.current) return;
         setConsecutiveErrors(0);
         setLastSyncAt(new Date());
       },
       onError: () => {
-        if (!isMountedRef.current) return;
         setConsecutiveErrors((prev) => prev + 1);
       },
     });
-  }, [syncMutation]);
+  }, []);
 
-  // 타이머 스케줄
+  // 유효 interval 계산
+  const getEffectiveInterval = useCallback(() => {
+    const base = settingsRef.current.interval;
+    const errors = consecutiveErrorsRef.current;
+    if (errors === 0) return base;
+    return Math.min(base * Math.pow(2, errors), MAX_INTERVAL);
+  }, []);
+
+  // 타이머 스케줄 (의존성 없음 - ref 사용)
   const scheduleNext = useCallback(() => {
-    // 기존 타이머 클리어
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
+    clearTimers();
 
-    if (!settings.auto || !isVisibleRef.current) {
+    if (!settingsRef.current.auto) {
       setNextSyncIn(null);
       return;
     }
@@ -64,7 +77,6 @@ export function useAutoSync(projectId: number) {
     const intervalSec = getEffectiveInterval();
     setNextSyncIn(intervalSec);
 
-    // 카운트다운
     countdownRef.current = setInterval(() => {
       setNextSyncIn((prev) => {
         if (prev === null || prev <= 1) return null;
@@ -72,35 +84,36 @@ export function useAutoSync(projectId: number) {
       });
     }, 1000);
 
-    // 다음 sync 예약
     timerRef.current = setTimeout(() => {
       if (countdownRef.current) clearInterval(countdownRef.current);
       doSync();
     }, intervalSec * 1000);
-  }, [settings.auto, getEffectiveInterval, doSync]);
+  }, [clearTimers, getEffectiveInterval, doSync]);
 
-  // sync 완료/실패 후 다음 스케줄
+  // sync 완료/실패 후 다음 스케줄 (status 실제 변경만 감지)
+  const prevStatusRef = useRef(syncMutation.status);
   useEffect(() => {
-    if (!syncMutation.isPending && settings.auto && isVisibleRef.current) {
+    if (prevStatusRef.current === syncMutation.status) return;
+    prevStatusRef.current = syncMutation.status;
+
+    if (!syncMutation.isPending && settingsRef.current.auto && isVisible) {
       scheduleNext();
     }
-  }, [syncMutation.isPending, syncMutation.status, scheduleNext, settings.auto]);
+  }, [syncMutation.status, syncMutation.isPending, isVisible, scheduleNext]);
 
   // 탭 비활성 처리
   useEffect(() => {
     const handleVisibility = () => {
-      isVisibleRef.current = document.visibilityState === 'visible';
+      const visible = document.visibilityState === 'visible';
+      setIsVisible(visible);
 
-      if (!isVisibleRef.current) {
-        // hidden: 타이머 정지
-        if (timerRef.current) clearTimeout(timerRef.current);
-        if (countdownRef.current) clearInterval(countdownRef.current);
+      if (!visible) {
+        clearTimers();
         setNextSyncIn(null);
       } else {
-        // visible: 즉시 sync + 타이머 재시작
-        if (settings.onFocus && settings.auto) {
+        if (settingsRef.current.onFocus && settingsRef.current.auto) {
           doSync();
-        } else if (settings.auto) {
+        } else if (settingsRef.current.auto) {
           scheduleNext();
         }
       }
@@ -108,34 +121,20 @@ export function useAutoSync(projectId: number) {
 
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [settings.onFocus, settings.auto, doSync, scheduleNext]);
+  }, [doSync, scheduleNext, clearTimers]);
 
-  // 초기 타이머 시작
+  // cleanup on unmount / projectId change
   useEffect(() => {
-    if (settings.auto && projectId) {
-      scheduleNext();
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]); // projectId 변경 시만 재시작
-
-  // cleanup
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+    return () => clearTimers();
+  }, [projectId, clearTimers]);
 
   return {
-    isPolling: settings.auto && isVisibleRef.current,
+    syncMutation,
+    isPolling: settings.auto && isVisible,
     isSyncing: syncMutation.isPending,
     lastSyncAt,
     nextSyncIn,
     hasError: consecutiveErrors > 0,
     consecutiveErrors,
-  } satisfies AutoSyncState;
+  };
 }

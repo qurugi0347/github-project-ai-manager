@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { Task, Milestone } from '@/types';
 import { useProjectPageData } from '@/hooks/useProjectQueries';
-import { useSyncMutation } from '@/hooks/useSyncMutation';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { useTaskStatusMutation } from '@/hooks/useTaskStatusMutation';
 import AutoSyncIndicator from '@/components/AutoSyncIndicator';
@@ -18,8 +17,7 @@ export default function ProjectPage() {
   // 서버 상태 (React Query)
   const { project, tasks, milestones, statusColumns, isLoading, error } =
     useProjectPageData(projectId);
-  const syncMutation = useSyncMutation(projectId);
-  const autoSync = useAutoSync(projectId);
+  const { syncMutation, ...autoSync } = useAutoSync(projectId);
   const statusMutation = useTaskStatusMutation(projectId);
 
   // UI 상태 (useState)
@@ -27,6 +25,14 @@ export default function ProjectPage() {
   const [milestoneFilter, setMilestoneFilter] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+
+  if (!id || Number.isNaN(projectId)) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-red-500">Invalid project ID</p>
+      </div>
+    );
+  }
 
   // 이벤트 핸들러
   const handleSync = () => {
