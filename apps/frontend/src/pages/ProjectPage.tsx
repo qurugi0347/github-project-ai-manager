@@ -154,11 +154,12 @@ export default function ProjectPage() {
           onMilestoneFilterChange={setMilestoneFilter}
           onTaskClick={handleTaskClick}
           onStatusChange={handleStatusChange}
+          prefix={project?.prefix}
         />
       </div>
 
       {/* Detail Panels */}
-      <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} prefix={project?.prefix} />
       <MilestoneDetailPanel
         milestone={selectedMilestone}
         tasks={tasks}

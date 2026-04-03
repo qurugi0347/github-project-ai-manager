@@ -7,6 +7,7 @@ interface ProjectItem {
   content: {
     __typename: string;
     title?: string;
+    number?: number;
     body?: string;
     updatedAt?: string;
     headRefName?: string;
@@ -107,6 +108,7 @@ export class GitHubService {
                   }
                   ... on Issue {
                     title
+                    number
                     body
                     updatedAt
                     author { login avatarUrl }
@@ -127,6 +129,7 @@ export class GitHubService {
                   }
                   ... on PullRequest {
                     title
+                    number
                     body
                     updatedAt
                     headRefName

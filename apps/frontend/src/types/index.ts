@@ -5,6 +5,7 @@ export interface Project {
   repo: string | null;
   projectNumber: number;
   projectUrl: string;
+  prefix: string | null;
   createdAt: string;
 }
 
@@ -16,6 +17,7 @@ export interface Assignee {
 export interface Task {
   id: number;
   projectId: number;
+  githubNumber?: number | null;
   title: string;
   body?: string;
   status: string;

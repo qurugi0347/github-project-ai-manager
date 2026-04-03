@@ -19,6 +19,7 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
   isDragOverlay?: boolean;
+  prefix?: string | null;
 }
 
 const contentTypeBadgeColor: Record<string, string> = {
@@ -27,7 +28,7 @@ const contentTypeBadgeColor: Record<string, string> = {
   PullRequest: 'bg-green-100 text-green-700',
 };
 
-export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps) {
+export default function TaskCard({ task, onClick, isDragOverlay, prefix }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     disabled: isDragOverlay,
@@ -55,7 +56,12 @@ export default function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps
       className={`w-full text-left bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-xs text-gray-400 font-mono">#{task.id}</span>
+        <span className="text-xs text-gray-400 font-mono">
+          {prefix ? `${prefix}-${task.id}` : `#${task.id}`}
+        </span>
+        {task.githubNumber && (
+          <span className="text-xs text-gray-500 font-mono">#{task.githubNumber}</span>
+        )}
         <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${badgeClass}`}>
           {task.contentType}
         </span>
