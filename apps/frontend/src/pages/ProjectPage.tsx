@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import type { Task, Milestone } from '@/types';
 import { useProjectPageData } from '@/hooks/useProjectQueries';
 import { useSyncMutation } from '@/hooks/useSyncMutation';
+import { useAutoSync } from '@/hooks/useAutoSync';
 import { useTaskStatusMutation } from '@/hooks/useTaskStatusMutation';
+import AutoSyncIndicator from '@/components/AutoSyncIndicator';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
@@ -17,6 +19,7 @@ export default function ProjectPage() {
   const { project, tasks, milestones, statusColumns, isLoading, error } =
     useProjectPageData(projectId);
   const syncMutation = useSyncMutation(projectId);
+  const autoSync = useAutoSync(projectId);
   const statusMutation = useTaskStatusMutation(projectId);
 
   // UI 상태 (useState)
@@ -90,12 +93,20 @@ export default function ProjectPage() {
             Project #{project?.projectNumber}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSync}
-          disabled={syncMutation.isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+        <div className="flex items-center gap-3">
+          <AutoSyncIndicator
+            isPolling={autoSync.isPolling}
+            isSyncing={autoSync.isSyncing}
+            lastSyncAt={autoSync.lastSyncAt}
+            nextSyncIn={autoSync.nextSyncIn}
+            hasError={autoSync.hasError}
+          />
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncMutation.isPending || autoSync.isSyncing}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
           {syncMutation.isPending ? (
             <>
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -112,7 +123,8 @@ export default function ProjectPage() {
               Sync
             </>
           )}
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Milestone Summary */}
