@@ -6,6 +6,7 @@ interface KanbanColumnProps {
   title: string;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  prefix?: string | null;
 }
 
 const columnHeaderColor: Record<string, string> = {
@@ -14,7 +15,7 @@ const columnHeaderColor: Record<string, string> = {
   Done: 'bg-green-500',
 };
 
-export default function KanbanColumn({ title, tasks, onTaskClick }: KanbanColumnProps) {
+export default function KanbanColumn({ title, tasks, onTaskClick, prefix }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: title });
   const dotColor = columnHeaderColor[title] ?? 'bg-gray-400';
 
@@ -32,7 +33,7 @@ export default function KanbanColumn({ title, tasks, onTaskClick }: KanbanColumn
           <p className="text-xs text-gray-400 text-center py-4">No tasks</p>
         )}
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+          <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} prefix={prefix} />
         ))}
       </div>
     </div>

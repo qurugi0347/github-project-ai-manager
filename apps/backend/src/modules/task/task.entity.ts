@@ -76,6 +76,9 @@ export class Task {
   @Column({ name: 'author_avatar_url', type: 'varchar', nullable: true })
   authorAvatarUrl: string | null;
 
+  @Column({ name: 'github_number', type: 'integer', nullable: true })
+  githubNumber: number | null;
+
   @Column({ name: 'milestone_id', nullable: true })
   milestoneId: number | null;
 

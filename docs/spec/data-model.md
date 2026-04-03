@@ -41,6 +41,7 @@ GitHub Project V2의 Item 필드를 로컬 SQLite 테이블 컬럼으로 매핑�
 | `project_number` | INTEGER | NOT NULL | GitHub Project 번호 |
 | `project_url` | TEXT | NOT NULL | GitHub Project URL |
 | `github_project_id` | TEXT | | GitHub Project GraphQL node ID (sync 후 채움, nullable) |
+| `prefix` | TEXT | UNIQUE | 프로젝트 고유 prefix (자동 생성, 예: GPAM) |
 | `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 생성 시각 |
 | `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 수정 시각 |
 
@@ -53,6 +54,7 @@ CREATE TABLE projects (
     project_number INTEGER NOT NULL,
     project_url TEXT NOT NULL,
     github_project_id TEXT,
+    prefix TEXT UNIQUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(owner, project_number)
@@ -82,6 +84,7 @@ GitHub Project Item과 매핑되는 태스크 데이터를 저장합니다.
 | `branch` | TEXT | | 연결된 Git 브랜치명 (nullable) |
 | `author_login` | TEXT | | Issue/PR 작성자 GitHub 로그인 (nullable) |
 | `author_avatar_url` | TEXT | | Issue/PR 작성자 프로필 이미지 URL (nullable) |
+| `github_number` | INTEGER | | GitHub Issue/PR 번호 (DraftIssue는 null) |
 | `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 생성 시각 |
 | `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 로컬 수정 시각 |
 | `github_created_at` | DATETIME | | GitHub 생성 시각 |
@@ -104,6 +107,7 @@ CREATE TABLE tasks (
     branch TEXT,
     author_login TEXT,
     author_avatar_url TEXT,
+    github_number INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     github_created_at DATETIME,

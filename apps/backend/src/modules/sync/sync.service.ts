@@ -158,6 +158,7 @@ export class SyncService {
         existing.authorLogin = authorLogin;
         existing.authorAvatarUrl = authorAvatarUrl;
         existing.milestoneId = milestoneId;
+        existing.githubNumber = item.content?.number ?? existing.githubNumber;
         existing.githubUpdatedAt = item.content.updatedAt ? new Date(item.content.updatedAt) : existing.githubUpdatedAt;
         existing.syncedAt = new Date();
         existing.isDirty = false;
@@ -177,6 +178,7 @@ export class SyncService {
         task.authorLogin = authorLogin;
         task.authorAvatarUrl = authorAvatarUrl;
         task.milestoneId = milestoneId;
+        task.githubNumber = item.content?.number ?? null;
         if (item.content.updatedAt) {
           task.githubCreatedAt = new Date(item.content.updatedAt);
           task.githubUpdatedAt = new Date(item.content.updatedAt);
