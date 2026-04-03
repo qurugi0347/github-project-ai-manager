@@ -603,6 +603,7 @@ __metadata:
     "@dnd-kit/utilities": ^3.2.2
     "@tailwindcss/typography": ^0.5.19
     "@tailwindcss/vite": ^4.0.0
+    "@tanstack/react-query": ^5.96.1
     "@types/react": ^19.0.0
     "@types/react-dom": ^19.0.0
     "@vitejs/plugin-react": ^4.0.0
@@ -1603,6 +1604,24 @@ __metadata:
   peerDependencies:
     vite: ^5.2.0 || ^6 || ^7 || ^8
   checksum: 1390282177a7cdfc7550b529b376a029e9d52ac9ab67028eb5e506b861b00270470666fd713e3f02289330fb48fde8ed5e68718f4463b121408195396be9d702
+  languageName: node
+  linkType: hard
+
+"@tanstack/query-core@npm:5.96.1":
+  version: 5.96.1
+  resolution: "@tanstack/query-core@npm:5.96.1"
+  checksum: 5b2bb124bb80e5431b85551a6eb93b5d3cf73158f43962d846768a5d63e95fa5a1393f333704571a5d0b76cf58608e605f234b1535416676c04c3b83f944af20
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query@npm:^5.96.1":
+  version: 5.96.1
+  resolution: "@tanstack/react-query@npm:5.96.1"
+  dependencies:
+    "@tanstack/query-core": 5.96.1
+  peerDependencies:
+    react: ^18 || ^19
+  checksum: 89061420e92564d0fb4a03785ebd3ebff562e4ee0c828fb91f1cdc58683a76f9ee64695df8213ad4bb67fb99104de48a38da3cffbed26d2ed88e981da52b8c59
   languageName: node
   linkType: hard
 
