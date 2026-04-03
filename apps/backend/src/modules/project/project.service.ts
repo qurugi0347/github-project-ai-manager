@@ -28,9 +28,10 @@ export class ProjectService {
     if (existing) {
       if (extra) {
         Object.assign(existing, extra);
-        return this.projectRepo.save(existing);
+        return this.projectRepo.save(existing)
+          .then((saved) => this.ensurePrefix(saved));
       }
-      return existing;
+      return this.ensurePrefix(existing);
     }
 
     const prefix = await this.generatePrefix(extra?.repo ?? null, owner);
@@ -88,7 +89,11 @@ export class ProjectService {
     return repo.substring(0, 3).toUpperCase();
   }
 
-  private async generateRandomPrefix(): Promise<string> {
+  private async generateRandomPrefix(depth = 0): Promise<string> {
+    if (depth >= 10) {
+      return `P${Date.now().toString(36).slice(-5).toUpperCase()}`;
+    }
+
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let prefix = '';
     for (let i = 0; i < 6; i++) {
@@ -97,7 +102,7 @@ export class ProjectService {
 
     const isDuplicate = await this.projectRepo.findOneBy({ prefix })
       .then((found) => !!found);
-    if (isDuplicate) return this.generateRandomPrefix();
+    if (isDuplicate) return this.generateRandomPrefix(depth + 1);
     return prefix;
   }
 }

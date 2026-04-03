@@ -146,7 +146,10 @@ taskCmd
       if (json) {
         console.log(JSON.stringify(task, null, 2));
       } else {
-        console.log(`✓ Task #${task.id} updated`);
+        const project = await apiRequest<any>('/projects/current').catch(() => null);
+        const prefix = project?.prefix;
+        const idDisplay = prefix ? `${prefix}-${task.id}` : `#${task.id}`;
+        console.log(`✓ Task ${idDisplay} updated`);
       }
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
@@ -160,7 +163,10 @@ taskCmd
   .action(async (id) => {
     try {
       await apiRequest(`/tasks/${id}`, { method: 'DELETE' });
-      console.log(`✓ Task #${id} deleted`);
+      const project = await apiRequest<any>('/projects/current').catch(() => null);
+      const prefix = project?.prefix;
+      const idDisplay = prefix ? `${prefix}-${id}` : `#${id}`;
+      console.log(`✓ Task ${idDisplay} deleted`);
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);

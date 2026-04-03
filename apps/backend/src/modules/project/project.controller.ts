@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseIntPipe, NotFoundException, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { RequestWithProject } from '../../types/request';
 import { ProjectService } from './project.service';
 
 @Controller('projects')
@@ -12,8 +12,8 @@ export class ProjectController {
   }
 
   @Get('current')
-  async findCurrent(@Req() req: Request) {
-    const project = (req as any).project;
+  async findCurrent(@Req() req: RequestWithProject) {
+    const project = req.project;
     if (!project) throw new NotFoundException('No project context. Send X-GPM-Owner and X-GPM-Project-Number headers.');
     return project;
   }
