@@ -1,6 +1,6 @@
 {
   "name": "github-project-manager",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "GitHub Project V2 manager - CLI + Web UI for task management with Claude Code",
   "bin": {
     "gpm": "./apps/cli/bin/gpm.js"
