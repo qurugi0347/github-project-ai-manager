@@ -6,6 +6,7 @@ import { runServer } from './commands/server';
 import { runHooksList, runHooksInstall, runHooksRemove } from './commands/hooks';
 import { registerProjectCommand } from './commands/project';
 import { apiRequest } from './utils/api-client';
+import { loadGpmrc, getAllProjectAliases } from './utils/gpmrc';
 
 const program = new Command();
 
@@ -205,15 +206,28 @@ hooksCmd
   });
 
 // --- Sync ---
-const syncCmd = program
-  .command('sync')
-  .description('Pull latest data from GitHub Project')
-  .action(async () => {
+async function syncProject(alias: string): Promise<{ alias: string; success: boolean; result?: any; error?: string }> {
+  try {
+    const result = await apiRequest<any>('/sync/pull', {
+      method: 'POST',
+      projectAlias: alias,
+    });
+    return { alias, success: true, result };
+  } catch (err) {
+    return { alias, success: false, error: (err as Error).message };
+  }
+}
+
+async function syncAllProjects(): Promise<void> {
+  const projectAlias = program.opts().project;
+
+  if (projectAlias) {
+    // --project 옵션이 지정된 경우: 해당 project만 sync
     try {
       console.log('Syncing with GitHub Project...');
       const result = await apiRequest<any>('/sync/pull', {
         method: 'POST',
-        projectAlias: program.opts().project,
+        projectAlias,
       });
       console.log(`✓ Sync completed: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
       console.log(`  Total items from GitHub: ${result.pulled}`);
@@ -221,6 +235,53 @@ const syncCmd = program
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);
     }
+    return;
+  }
+
+  // 전체 project 순회
+  const config = loadGpmrc();
+  const aliases = getAllProjectAliases(config);
+
+  console.log(`Syncing ${aliases.length} project(s) with GitHub...`);
+
+  let successCount = 0;
+  const failed: { alias: string; error: string }[] = [];
+
+  for (const alias of aliases) {
+    console.log(`\n▶ Syncing project "${alias}"...`);
+    const { success, result, error } = await syncProject(alias);
+
+    if (success) {
+      console.log(`  ✓ "${alias}" synced: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
+      successCount++;
+    } else {
+      console.error(`  ✗ "${alias}" failed: ${error}`);
+      failed.push({ alias, error: error! });
+    }
+  }
+
+  console.log(`\nSync complete: ${successCount}/${aliases.length} projects synced successfully`);
+  if (failed.length > 0) {
+    console.error('Failed projects:');
+    for (const { alias, error } of failed) {
+      console.error(`  - ${alias}: ${error}`);
+    }
+    process.exit(1);
+  }
+}
+
+const syncCmd = program
+  .command('sync')
+  .description('Sync with GitHub Project')
+  .action(async () => {
+    await syncAllProjects();
+  });
+
+syncCmd
+  .command('pull')
+  .description('Pull latest data from GitHub Project')
+  .action(async () => {
+    await syncAllProjects();
   });
 
 syncCmd

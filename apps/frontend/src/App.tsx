@@ -1,15 +1,17 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import ProjectListPage from '@/pages/ProjectListPage';
-import ProjectPage from '@/pages/ProjectPage';
+import RepositoryListPage from '@/pages/RepositoryListPage';
+import RepositoryRedirect from '@/pages/RepositoryRedirect';
+import RepositoryProjectPage from '@/pages/RepositoryProjectPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<ProjectListPage />} />
-          <Route path="/projects/:id" element={<ProjectPage />} />
+          <Route path="/" element={<RepositoryListPage />} />
+          <Route path="/repository/:owner/:repo" element={<RepositoryRedirect />} />
+          <Route path="/repository/:owner/:repo/project/:projectId" element={<RepositoryProjectPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

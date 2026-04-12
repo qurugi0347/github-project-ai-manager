@@ -7,8 +7,8 @@ import KanbanBoard from '@/components/KanbanBoard';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
 import MilestoneDetailPanel from '@/components/MilestoneDetailPanel';
 
-export default function ProjectPage() {
-  const { id } = useParams<{ id: string }>();
+export default function RepositoryProjectPage() {
+  const { owner, repo, projectId } = useParams<{ owner: string; repo: string; projectId: string }>();
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -23,20 +23,20 @@ export default function ProjectPage() {
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!projectId) return;
 
     const load = async () => {
       try {
         const [projectData, taskData, milestoneData] = await Promise.all([
-          apiGet<Project>(`/projects/${id}`),
-          apiGet<Task[]>(`/tasks?projectId=${id}`),
-          apiGet<Milestone[]>(`/milestones?projectId=${id}`),
+          apiGet<Project>(`/projects/${projectId}`),
+          apiGet<Task[]>(`/tasks?projectId=${projectId}`),
+          apiGet<Milestone[]>(`/milestones?projectId=${projectId}`),
         ]);
         setProject(projectData);
         setTasks(taskData);
         setMilestones(milestoneData);
 
-        const columns = await apiGet<string[]>(`/sync/status-options?projectId=${id}`).catch(() => [] as string[]);
+        const columns = await apiGet<string[]>(`/sync/status-options?projectId=${projectId}`).catch(() => [] as string[]);
         setStatusColumns(columns);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load project');
@@ -46,18 +46,18 @@ export default function ProjectPage() {
     };
 
     load();
-  }, [id]);
+  }, [projectId]);
 
   const handleSync = async () => {
-    if (!id || syncing) return;
+    if (!projectId || syncing) return;
 
     setSyncing(true);
     try {
-      await apiPost(`/sync/pull?projectId=${id}`, {});
+      await apiPost(`/sync/pull?projectId=${projectId}`, {});
       const [taskData, milestoneData, columns] = await Promise.all([
-        apiGet<Task[]>(`/tasks?projectId=${id}`),
-        apiGet<Milestone[]>(`/milestones?projectId=${id}`),
-        apiGet<string[]>(`/sync/status-options?projectId=${id}&force=true`),
+        apiGet<Task[]>(`/tasks?projectId=${projectId}`),
+        apiGet<Milestone[]>(`/milestones?projectId=${projectId}`),
+        apiGet<string[]>(`/sync/status-options?projectId=${projectId}&force=true`),
       ]);
       setTasks(taskData);
       setMilestones(milestoneData);
@@ -75,7 +75,7 @@ export default function ProjectPage() {
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
     );
 
-    apiPatch(`/tasks/${taskId}?projectId=${id}`, { status: newStatus })
+    apiPatch(`/tasks/${taskId}?projectId=${projectId}`, { status: newStatus })
       .catch((err) => {
         setTasks(previousTasks);
         setToast(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -119,7 +119,7 @@ export default function ProjectPage() {
       {/* Back link */}
       <div className="mb-4">
         <Link to="/" className="text-sm text-blue-500 hover:text-blue-700">
-          &larr; All Projects
+          &larr; All Repositories
         </Link>
       </div>
 
