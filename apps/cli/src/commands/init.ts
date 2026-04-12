@@ -152,12 +152,19 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
     }
   }
 
+  const resolvedProjectUrl = `https://github.com/${parsed.ownerType === 'organization' ? 'orgs' : 'users'}/${parsed.owner}/projects/${parsed.projectNumber}`;
+
   const config: GpmConfig = {
     owner: parsed.owner,
     ownerType: parsed.ownerType,
-    ...(repoInfo && { repo: repoInfo.repo }),
-    projectNumber: parsed.projectNumber,
-    projectUrl: `https://github.com/${parsed.ownerType === 'organization' ? 'orgs' : 'users'}/${parsed.owner}/projects/${parsed.projectNumber}`,
+    repo: repoInfo?.repo ?? '',
+    defaultProject: 'default',
+    projects: {
+      default: {
+        projectNumber: parsed.projectNumber,
+        projectUrl: resolvedProjectUrl,
+      },
+    },
   };
 
   writeFileSync(gpmrcPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
@@ -168,10 +175,11 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
     const app = await getAppContext();
     const { ProjectService } = await import('@gpm/backend/dist/modules/project/project.service');
     const projectService = app.get(ProjectService);
-    await projectService.findOrCreate(config.owner, config.projectNumber, {
+    const defaultProject = config.projects[config.defaultProject];
+    await projectService.findOrCreate(config.owner, defaultProject.projectNumber, {
       ownerType: config.ownerType,
       repo: config.repo,
-      projectUrl: config.projectUrl,
+      projectUrl: defaultProject.projectUrl,
     });
     await closeAppContext();
     console.log('✓ 프로젝트 등록 완료');
@@ -232,7 +240,7 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
 
   // 11. 성공 메시지
   console.log(`✓ .gpmrc created`);
-  console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
+  console.log(`✓ Connected to project: ${config.owner}/projects/${config.projects[config.defaultProject].projectNumber}`);
   if (repoInfo) {
     console.log(`✓ Repository: ${repoInfo.owner}/${repoInfo.repo}`);
   }

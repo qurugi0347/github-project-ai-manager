@@ -1,4 +1,12 @@
-import { Controller, Get, Param, ParseIntPipe, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  ParseIntPipe,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ProjectService } from './project.service';
 
 @Controller('projects')
@@ -8,6 +16,17 @@ export class ProjectController {
   @Get()
   async findAll() {
     return this.projectService.findAll();
+  }
+
+  @Get('by-repo')
+  async findByRepo(
+    @Query('owner') owner?: string,
+    @Query('repo') repo?: string,
+  ) {
+    if (!owner || !repo) {
+      throw new BadRequestException('Both "owner" and "repo" query parameters are required');
+    }
+    return this.projectService.findByOwnerAndRepo(owner, repo);
   }
 
   @Get(':id')
