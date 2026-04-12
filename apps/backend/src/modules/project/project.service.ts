@@ -27,10 +27,11 @@ export class ProjectService {
     if (existing) {
       const updates: Partial<Project> = {};
       if (extra) {
-        Object.assign(updates, extra);
-      }
-      if (extra?.alias !== undefined && existing.alias !== extra.alias) {
-        updates.alias = extra.alias;
+        for (const [key, value] of Object.entries(extra)) {
+          if (value !== undefined && (existing as any)[key] !== value) {
+            (updates as any)[key] = value;
+          }
+        }
       }
       if (Object.keys(updates).length > 0) {
         Object.assign(existing, updates);

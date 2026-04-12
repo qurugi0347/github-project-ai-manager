@@ -118,6 +118,7 @@ async function registerProjectInDb(config: GpmConfig, alias: string): Promise<vo
       ownerType: config.ownerType,
       repo: config.repo,
       projectUrl: project.projectUrl,
+      alias,
     });
     await closeAppContext();
     console.log('✓ 프로젝트 등록 완료');

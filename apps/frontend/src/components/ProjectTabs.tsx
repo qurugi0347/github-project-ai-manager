@@ -13,7 +13,7 @@ export default function ProjectTabs({ owner, repo, currentProjectId }: ProjectTa
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
-    apiGet<Project[]>(`/projects/by-repo?owner=${owner}&repo=${repo}`)
+    apiGet<Project[]>(`/projects/by-repo?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`)
       .then(setProjects)
       .catch(() => setProjects([]));
   }, [owner, repo]);
