@@ -7,10 +7,11 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   needsProject?: boolean;
+  projectAlias?: string;
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, needsProject = true } = options;
+  const { method = 'GET', body, needsProject = true, projectAlias } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -18,7 +19,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (needsProject) {
     const config = loadGpmrc();
-    Object.assign(headers, getProjectHeaders(config));
+    Object.assign(headers, getProjectHeaders(config, projectAlias));
   }
 
   const url = new URL(`${BASE_URL}${path}`);

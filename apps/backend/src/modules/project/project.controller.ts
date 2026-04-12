@@ -1,4 +1,13 @@
-import { Controller, Get, Param, ParseIntPipe, NotFoundException, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  ParseIntPipe,
+  NotFoundException,
+  BadRequestException,
+  Req,
+} from '@nestjs/common';
 import { RequestWithProject } from '../../types/request';
 import { ProjectService } from './project.service';
 
@@ -9,6 +18,17 @@ export class ProjectController {
   @Get()
   async findAll() {
     return this.projectService.findAll();
+  }
+
+  @Get('by-repo')
+  async findByRepo(
+    @Query('owner') owner?: string,
+    @Query('repo') repo?: string,
+  ) {
+    if (!owner || !repo) {
+      throw new BadRequestException('Both "owner" and "repo" query parameters are required');
+    }
+    return this.projectService.findByOwnerAndRepo(owner, repo);
   }
 
   @Get('current')

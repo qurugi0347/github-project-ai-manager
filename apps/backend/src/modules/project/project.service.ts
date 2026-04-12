@@ -22,12 +22,20 @@ export class ProjectService {
   async findOrCreate(
     owner: string,
     projectNumber: number,
-    extra?: Partial<Pick<Project, 'ownerType' | 'repo' | 'projectUrl'>>,
+    extra?: Partial<Pick<Project, 'ownerType' | 'repo' | 'projectUrl' | 'alias'>>,
   ): Promise<Project> {
     const existing = await this.projectRepo.findOneBy({ owner, projectNumber });
     if (existing) {
+      const updates: Partial<Project> = {};
       if (extra) {
-        Object.assign(existing, extra);
+        for (const [key, value] of Object.entries(extra)) {
+          if (value !== undefined && (existing as any)[key] !== value) {
+            (updates as any)[key] = value;
+          }
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        Object.assign(existing, updates);
         return this.projectRepo.save(existing)
           .then((saved) => this.ensurePrefix(saved));
       }
@@ -41,6 +49,7 @@ export class ProjectService {
       projectUrl: extra?.projectUrl ?? '',
       ownerType: extra?.ownerType ?? 'organization',
       repo: extra?.repo ?? undefined,
+      alias: extra?.alias ?? null,
       prefix,
     });
     return this.projectRepo.save(project);
@@ -49,6 +58,13 @@ export class ProjectService {
   async findByOwnerAndNumber(owner: string, projectNumber: number): Promise<Project | null> {
     return this.projectRepo.findOneBy({ owner, projectNumber })
       .then((project) => project ? this.ensurePrefix(project) : null);
+  }
+
+  async findByOwnerAndRepo(owner: string, repo: string): Promise<Project[]> {
+    return this.projectRepo.find({
+      where: { owner, repo },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async save(project: Project): Promise<Project> {

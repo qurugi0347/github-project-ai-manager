@@ -3,6 +3,7 @@ export interface Project {
   owner: string;
   ownerType: string;
   repo: string | null;
+  alias: string | null;
   projectNumber: number;
   projectUrl: string;
   prefix: string | null;

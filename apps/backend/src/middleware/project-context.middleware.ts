@@ -10,6 +10,7 @@ export class ProjectContextMiddleware implements NestMiddleware {
   async use(req: RequestWithProject, res: Response, next: NextFunction) {
     const owner = req.headers['x-gpm-owner'] as string;
     const projectNumber = Number(req.headers['x-gpm-project-number']);
+    const alias = req.headers['x-gpm-project-alias'] as string | undefined;
 
     if (!owner || !projectNumber || isNaN(projectNumber)) {
       return next();
@@ -23,6 +24,12 @@ export class ProjectContextMiddleware implements NestMiddleware {
       });
       return;
     }
+
+    if (alias !== undefined && project.alias !== alias) {
+      project.alias = alias;
+      await this.projectService.save(project);
+    }
+
     req.project = project;
     next();
   }

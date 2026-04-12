@@ -36,6 +36,9 @@ export class Project {
   @Column({ name: 'github_project_id', nullable: true })
   githubProjectId: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  alias: string | null;
+
   @Column({ name: 'status_options', type: 'simple-json', nullable: true })
   statusOptions: string[] | null;
 

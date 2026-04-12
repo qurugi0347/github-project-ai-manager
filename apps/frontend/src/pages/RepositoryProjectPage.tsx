@@ -5,14 +5,15 @@ import { useProjectPageData } from '@/hooks/useProjectQueries';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { useTaskStatusMutation } from '@/hooks/useTaskStatusMutation';
 import AutoSyncIndicator from '@/components/AutoSyncIndicator';
+import ProjectTabs from '@/components/ProjectTabs';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
 import MilestoneDetailPanel from '@/components/MilestoneDetailPanel';
 
-export default function ProjectPage() {
-  const { id } = useParams<{ id: string }>();
-  const projectId = Number(id);
+export default function RepositoryProjectPage() {
+  const { owner, repo, projectId: projectIdParam } = useParams<{ owner: string; repo: string; projectId: string }>();
+  const projectId = Number(projectIdParam);
 
   // 서버 상태 (React Query)
   const { project, tasks, milestones, statusColumns, isLoading, error } =
@@ -26,7 +27,7 @@ export default function ProjectPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
-  if (!id || Number.isNaN(projectId)) {
+  if (!projectIdParam || Number.isNaN(projectId)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-red-500">Invalid project ID</p>
@@ -84,9 +85,14 @@ export default function ProjectPage() {
       {/* Back link */}
       <div className="mb-4">
         <Link to="/" className="text-sm text-blue-500 hover:text-blue-700">
-          &larr; All Projects
+          &larr; All Repositories
         </Link>
       </div>
+
+      {/* Project Tabs */}
+      {owner && repo && projectId && (
+        <ProjectTabs owner={owner} repo={repo} currentProjectId={Number(projectId)} />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

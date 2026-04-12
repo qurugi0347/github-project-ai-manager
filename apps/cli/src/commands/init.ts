@@ -1,11 +1,12 @@
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync, writeFileSync, mkdirSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { GpmConfig } from '../types';
 import { getAppContext, closeAppContext } from '../utils/bootstrap';
 import { HOOK_REGISTRY } from '../hooks/hook-registry';
 import { installHookFiles } from './hooks';
+import { loadGpmrc, validateGpmrc, saveGpmrc } from '../utils/gpmrc';
 
 export function validateGhAuth(): string {
   try {
@@ -106,88 +107,39 @@ interface InitOptions {
   hooks?: boolean;
 }
 
-export async function runInit(options: InitOptions = {}): Promise<void> {
-  const skipHooks = options.hooks === false;
-  // 1. gh auth 확인
-  console.log('GitHub CLI 인증 확인 중...');
-  try {
-    validateGhAuth();
-    console.log('✓ GitHub CLI 인증 확인 완료');
-  } catch (err) {
-    console.error(`✗ ${(err as Error).message}`);
-    process.exit(1);
-  }
-
-  // 2. GitHub Project URL 입력
-  const projectUrl = await prompt('? GitHub Project URL: ');
-  if (!projectUrl) {
-    console.error('✗ URL을 입력해주세요.');
-    process.exit(1);
-  }
-
-  // 3. URL 파싱
-  let parsed: ParsedProjectUrl;
-  try {
-    parsed = parseProjectUrl(projectUrl);
-  } catch (err) {
-    console.error(`✗ ${(err as Error).message}`);
-    process.exit(1);
-  }
-
-  // 4. git remote에서 repo 정보 추출
-  const cwd = process.cwd();
-  const repoInfo = getRepoFromGitRemote(cwd);
-  if (!repoInfo) {
-    console.log('⚠ git remote를 찾을 수 없습니다. repo 정보 없이 진행합니다.');
-  }
-
-  // 5. .gpmrc 생성
-  const gpmrcPath = join(cwd, '.gpmrc');
-
-  if (existsSync(gpmrcPath)) {
-    const overwrite = await prompt('? .gpmrc가 이미 존재합니다. 덮어쓰시겠습니까? (y/N): ');
-    if (overwrite.toLowerCase() !== 'y') {
-      console.log('취소되었습니다.');
-      return;
-    }
-  }
-
-  const config: GpmConfig = {
-    owner: parsed.owner,
-    ownerType: parsed.ownerType,
-    ...(repoInfo && { repo: repoInfo.repo }),
-    projectNumber: parsed.projectNumber,
-    projectUrl: `https://github.com/${parsed.ownerType === 'organization' ? 'orgs' : 'users'}/${parsed.owner}/projects/${parsed.projectNumber}`,
-  };
-
-  writeFileSync(gpmrcPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-
-  // 6. 서버 DB에 프로젝트 등록 (standalone mode)
+async function registerProjectInDb(config: GpmConfig, alias: string): Promise<void> {
   console.log('프로젝트 등록 중...');
   try {
     const app = await getAppContext();
     const { ProjectService } = await import('@gpm/backend/dist/modules/project/project.service');
     const projectService = app.get(ProjectService);
-    await projectService.findOrCreate(config.owner, config.projectNumber, {
+    const project = config.projects[alias];
+    await projectService.findOrCreate(config.owner, project.projectNumber, {
       ownerType: config.ownerType,
       repo: config.repo,
-      projectUrl: config.projectUrl,
+      projectUrl: project.projectUrl,
+      alias,
     });
     await closeAppContext();
     console.log('✓ 프로젝트 등록 완료');
   } catch (err) {
     console.log(`⚠ 프로젝트 자동 등록 실패 (서버 사용 시 자동 등록됩니다): ${(err as Error).message}`);
   }
+}
 
-  // 7. Claude Code Skill 설정
+function resolveProjectUrl(parsed: ParsedProjectUrl): string {
+  return `https://github.com/${parsed.ownerType === 'organization' ? 'orgs' : 'users'}/${parsed.owner}/projects/${parsed.projectNumber}`;
+}
+
+async function setupClaudeCodeIntegrations(cwd: string, skipHooks: boolean): Promise<void> {
+  // Claude Code Skill 설정
   const skillDir = join(cwd, '.claude', 'skills', 'gpm');
   const skillPath = join(skillDir, 'SKILL.md');
 
   if (!existsSync(skillPath)) {
-    // 템플릿 파일 위치 탐색
     const templateCandidates = [
-      join(__dirname, '..', '..', '..', '..', 'templates', 'claude-skill-gpm.md'),  // 개발 환경
-      join(__dirname, '..', '..', 'templates', 'claude-skill-gpm.md'),              // npm 패키지
+      join(__dirname, '..', '..', '..', '..', 'templates', 'claude-skill-gpm.md'),
+      join(__dirname, '..', '..', 'templates', 'claude-skill-gpm.md'),
     ];
 
     const templatePath = templateCandidates.find((p) => existsSync(p));
@@ -198,7 +150,7 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
     }
   }
 
-  // 8. Claude Code Agent 설정
+  // Claude Code Agent 설정
   const agentDir = join(cwd, '.claude', 'agents');
   const agentPath = join(agentDir, 'gpm-pm.md');
 
@@ -216,7 +168,7 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
     }
   }
 
-  // 9. Claude Code Hooks 설정
+  // Claude Code Hooks 설정
   if (!skipHooks) {
     const installHooks = await prompt('? Claude Code Hooks를 설치하시겠습니까? (Y/n): ');
     if (installHooks.toLowerCase() !== 'n') {
@@ -229,10 +181,176 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
       }
     }
   }
+}
 
-  // 11. 성공 메시지
+async function runAddProject(existingConfig: GpmConfig, cwd: string): Promise<void> {
+  // 1. GitHub Project URL 입력
+  const projectUrl = await prompt('? GitHub Project URL: ');
+  if (!projectUrl) {
+    console.error('✗ URL을 입력해주세요.');
+    process.exit(1);
+  }
+
+  // 2. URL 파싱
+  let parsed: ParsedProjectUrl;
+  try {
+    parsed = parseProjectUrl(projectUrl);
+  } catch (err) {
+    console.error(`✗ ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  const resolvedUrl = resolveProjectUrl(parsed);
+
+  // 3. 중복 체크
+  for (const [alias, project] of Object.entries(existingConfig.projects)) {
+    if (project.projectUrl === resolvedUrl) {
+      console.log(`이미 '${alias}'로 등록되어 있습니다.`);
+      return;
+    }
+    if (project.projectNumber === parsed.projectNumber) {
+      console.log(`Project #${parsed.projectNumber}이 이미 '${alias}'로 등록되어 있습니다.`);
+      return;
+    }
+  }
+
+  // 4. alias 입력
+  const alias = await prompt('? 프로젝트 alias (예: my-project): ');
+  if (!alias) {
+    console.error('✗ alias를 입력해주세요.');
+    process.exit(1);
+  }
+
+  // 기존 alias와 충돌 체크
+  if (existingConfig.projects[alias]) {
+    console.error(`✗ alias '${alias}'는 이미 사용 중입니다.`);
+    process.exit(1);
+  }
+
+  // 5. 프로젝트 추가
+  existingConfig.projects[alias] = {
+    projectNumber: parsed.projectNumber,
+    projectUrl: resolvedUrl,
+  };
+
+  // 6. 전체 검증
+  try {
+    validateGpmrc(existingConfig);
+  } catch (err) {
+    // 검증 실패 시 추가한 프로젝트 롤백
+    delete existingConfig.projects[alias];
+    console.error(`✗ 설정 검증 실패: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  // 7. 저장
+  saveGpmrc(existingConfig, cwd);
+
+  // 8. DB 등록
+  await registerProjectInDb(existingConfig, alias);
+
+  console.log(`✓ 프로젝트 '${alias}' 추가 완료 (Project #${parsed.projectNumber})`);
+}
+
+export async function runInit(options: InitOptions = {}): Promise<void> {
+  const skipHooks = options.hooks === false;
+  const cwd = process.cwd();
+  const gpmrcPath = join(cwd, '.gpmrc');
+
+  // 1. gh auth 확인
+  console.log('GitHub CLI 인증 확인 중...');
+  try {
+    validateGhAuth();
+    console.log('✓ GitHub CLI 인증 확인 완료');
+  } catch (err) {
+    console.error(`✗ ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  // 2. 기존 .gpmrc 존재 시 프로젝트 추가 워크플로우
+  if (existsSync(gpmrcPath)) {
+    let existingConfig: GpmConfig;
+    try {
+      existingConfig = loadGpmrc(cwd);
+    } catch (err) {
+      console.error(`✗ .gpmrc 로드 실패: ${(err as Error).message}`);
+      process.exit(1);
+      return; // TypeScript narrowing
+    }
+
+    const addProject = await prompt('? .gpmrc가 이미 존재합니다. 프로젝트를 추가하시겠습니까? (y/N): ');
+    if (addProject.toLowerCase() !== 'y') {
+      console.log('취소되었습니다.');
+      return;
+    }
+
+    await runAddProject(existingConfig, cwd);
+    return;
+  }
+
+  // 3. 새 .gpmrc 생성 워크플로우
+  // 3-1. GitHub Project URL 입력
+  const projectUrl = await prompt('? GitHub Project URL: ');
+  if (!projectUrl) {
+    console.error('✗ URL을 입력해주세요.');
+    process.exit(1);
+  }
+
+  // 3-2. URL 파싱
+  let parsed: ParsedProjectUrl;
+  try {
+    parsed = parseProjectUrl(projectUrl);
+  } catch (err) {
+    console.error(`✗ ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  // 3-3. git remote에서 repo 정보 추출
+  const repoInfo = getRepoFromGitRemote(cwd);
+  if (!repoInfo) {
+    console.log('⚠ git remote를 찾을 수 없습니다. repo 정보 없이 진행합니다.');
+  }
+
+  // 3-4. alias 입력
+  const alias = await prompt('? 프로젝트 alias (기본값: default): ');
+  const resolvedAlias = alias || 'default';
+
+  const resolvedUrl = resolveProjectUrl(parsed);
+
+  // 3-5. 멀티 프로젝트 형식으로 .gpmrc 생성
+  const config: GpmConfig = {
+    owner: parsed.owner,
+    ownerType: parsed.ownerType,
+    repo: repoInfo?.repo ?? '',
+    defaultProject: resolvedAlias,
+    projects: {
+      [resolvedAlias]: {
+        projectNumber: parsed.projectNumber,
+        projectUrl: resolvedUrl,
+      },
+    },
+  };
+
+  // 3-6. 검증
+  try {
+    validateGpmrc(config);
+  } catch (err) {
+    console.error(`✗ 설정 검증 실패: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  // 3-7. 저장
+  saveGpmrc(config, cwd);
+
+  // 3-8. 서버 DB에 프로젝트 등록
+  await registerProjectInDb(config, resolvedAlias);
+
+  // 3-9. Claude Code 연동 설정
+  await setupClaudeCodeIntegrations(cwd, skipHooks);
+
+  // 3-10. 성공 메시지
   console.log(`✓ .gpmrc created`);
-  console.log(`✓ Connected to project: ${config.owner}/projects/${config.projectNumber}`);
+  console.log(`✓ Connected to project: ${config.owner}/projects/${config.projects[resolvedAlias].projectNumber}`);
   if (repoInfo) {
     console.log(`✓ Repository: ${repoInfo.owner}/${repoInfo.repo}`);
   }

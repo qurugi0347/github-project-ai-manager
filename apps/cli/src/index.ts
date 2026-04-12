@@ -4,14 +4,17 @@ import { AppService } from '@gpm/backend/dist/app.service';
 import { runInit } from './commands/init';
 import { runServer } from './commands/server';
 import { runHooksList, runHooksInstall, runHooksRemove } from './commands/hooks';
+import { registerProjectCommand } from './commands/project';
 import { apiRequest } from './utils/api-client';
+import { loadGpmrc, getAllProjectAliases } from './utils/gpmrc';
 
 const program = new Command();
 
 program
   .name('gpm')
   .description('GitHub Project Manager - CLI for managing GitHub Projects')
-  .version('0.0.1');
+  .version('0.0.1')
+  .option('-p, --project <alias>', 'Target project alias from .gpmrc');
 
 program
   .command('health')
@@ -50,9 +53,10 @@ taskCmd
   .option('--limit <n>', 'Limit results', '20')
   .action(async (options) => {
     try {
+      const projectAlias = program.opts().project;
       const [tasks, project] = await Promise.all([
-        apiRequest<any[]>('/tasks'),
-        apiRequest<any>('/projects/current').catch(() => null),
+        apiRequest<any[]>('/tasks', { projectAlias }),
+        apiRequest<any>('/projects/current', { projectAlias }).catch(() => null),
       ]);
       const prefix = project?.prefix;
       if (options.json) {
@@ -82,9 +86,10 @@ taskCmd
   .option('--json', 'Output as JSON')
   .action(async (id, options) => {
     try {
+      const projectAlias = program.opts().project;
       const [task, project] = await Promise.all([
-        apiRequest<any>(`/tasks/${id}`),
-        apiRequest<any>('/projects/current').catch(() => null),
+        apiRequest<any>(`/tasks/${id}`, { projectAlias }),
+        apiRequest<any>('/projects/current', { projectAlias }).catch(() => null),
       ]);
       const prefix = project?.prefix;
       if (options.json) {
@@ -114,6 +119,7 @@ taskCmd
       const task = await apiRequest<any>('/tasks', {
         method: 'POST',
         body: { title, body: options.body, status: options.status },
+        projectAlias: program.opts().project,
       });
       if (options.json) {
         console.log(JSON.stringify(task, null, 2));
@@ -142,6 +148,7 @@ taskCmd
       const task = await apiRequest<any>(`/tasks/${id}`, {
         method: 'PATCH',
         body: data,
+        projectAlias: program.opts().project,
       });
       if (json) {
         console.log(JSON.stringify(task, null, 2));
@@ -162,8 +169,12 @@ taskCmd
   .description('Delete a task')
   .action(async (id) => {
     try {
-      await apiRequest(`/tasks/${id}`, { method: 'DELETE' });
-      const project = await apiRequest<any>('/projects/current').catch(() => null);
+      const projectAlias = program.opts().project;
+      await apiRequest(`/tasks/${id}`, {
+        method: 'DELETE',
+        projectAlias,
+      });
+      const project = await apiRequest<any>('/projects/current', { projectAlias }).catch(() => null);
       const prefix = project?.prefix;
       const idDisplay = prefix ? `${prefix}-${id}` : `#${id}`;
       console.log(`✓ Task ${idDisplay} deleted`);
@@ -181,6 +192,7 @@ taskCmd
       const task = await apiRequest<any>(`/tasks/${id}`, {
         method: 'PATCH',
         body: { status },
+        projectAlias: program.opts().project,
       });
       const project = await apiRequest<any>('/projects/current').catch(() => null);
       const prefix = project?.prefix;
@@ -217,19 +229,82 @@ hooksCmd
   });
 
 // --- Sync ---
-const syncCmd = program
-  .command('sync')
-  .description('Pull latest data from GitHub Project')
-  .action(async () => {
+async function syncProject(alias: string): Promise<{ alias: string; success: boolean; result?: any; error?: string }> {
+  try {
+    const result = await apiRequest<any>('/sync/pull', {
+      method: 'POST',
+      projectAlias: alias,
+    });
+    return { alias, success: true, result };
+  } catch (err) {
+    return { alias, success: false, error: (err as Error).message };
+  }
+}
+
+async function syncAllProjects(): Promise<void> {
+  const projectAlias = program.opts().project;
+
+  if (projectAlias) {
+    // --project 옵션이 지정된 경우: 해당 project만 sync
     try {
       console.log('Syncing with GitHub Project...');
-      const result = await apiRequest<any>('/sync/pull', { method: 'POST' });
+      const result = await apiRequest<any>('/sync/pull', {
+        method: 'POST',
+        projectAlias,
+      });
       console.log(`✓ Sync completed: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
       console.log(`  Total items from GitHub: ${result.pulled}`);
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);
     }
+    return;
+  }
+
+  // 전체 project 순회
+  const config = loadGpmrc();
+  const aliases = getAllProjectAliases(config);
+
+  console.log(`Syncing ${aliases.length} project(s) with GitHub...`);
+
+  let successCount = 0;
+  const failed: { alias: string; error: string }[] = [];
+
+  for (const alias of aliases) {
+    console.log(`\n▶ Syncing project "${alias}"...`);
+    const { success, result, error } = await syncProject(alias);
+
+    if (success) {
+      console.log(`  ✓ "${alias}" synced: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
+      successCount++;
+    } else {
+      console.error(`  ✗ "${alias}" failed: ${error}`);
+      failed.push({ alias, error: error! });
+    }
+  }
+
+  console.log(`\nSync complete: ${successCount}/${aliases.length} projects synced successfully`);
+  if (failed.length > 0) {
+    console.error('Failed projects:');
+    for (const { alias, error } of failed) {
+      console.error(`  - ${alias}: ${error}`);
+    }
+    process.exit(1);
+  }
+}
+
+const syncCmd = program
+  .command('sync')
+  .description('Sync with GitHub Project')
+  .action(async () => {
+    await syncAllProjects();
+  });
+
+syncCmd
+  .command('pull')
+  .description('Pull latest data from GitHub Project')
+  .action(async () => {
+    await syncAllProjects();
   });
 
 syncCmd
@@ -239,6 +314,9 @@ syncCmd
   .action(() => {
     console.log('gpm sync status - not yet implemented');
   });
+
+// --- Project ---
+registerProjectCommand(program);
 
 // --- Server ---
 program
