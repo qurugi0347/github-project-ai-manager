@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiGet, apiPost, apiPatch } from '@/api/client';
 import type { Project, Task, Milestone } from '@/types';
+import ProjectTabs from '@/components/ProjectTabs';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
@@ -122,6 +123,11 @@ export default function RepositoryProjectPage() {
           &larr; All Repositories
         </Link>
       </div>
+
+      {/* Project Tabs */}
+      {owner && repo && projectId && (
+        <ProjectTabs owner={owner} repo={repo} currentProjectId={Number(projectId)} />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
