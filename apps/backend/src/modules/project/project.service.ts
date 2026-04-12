@@ -21,12 +21,19 @@ export class ProjectService {
   async findOrCreate(
     owner: string,
     projectNumber: number,
-    extra?: Partial<Pick<Project, 'ownerType' | 'repo' | 'projectUrl'>>,
+    extra?: Partial<Pick<Project, 'ownerType' | 'repo' | 'projectUrl' | 'alias'>>,
   ): Promise<Project> {
     const existing = await this.projectRepo.findOneBy({ owner, projectNumber });
     if (existing) {
+      const updates: Partial<Project> = {};
       if (extra) {
-        Object.assign(existing, extra);
+        Object.assign(updates, extra);
+      }
+      if (extra?.alias !== undefined && existing.alias !== extra.alias) {
+        updates.alias = extra.alias;
+      }
+      if (Object.keys(updates).length > 0) {
+        Object.assign(existing, updates);
         return this.projectRepo.save(existing);
       }
       return existing;
@@ -38,12 +45,20 @@ export class ProjectService {
       projectUrl: extra?.projectUrl ?? '',
       ownerType: extra?.ownerType ?? 'organization',
       repo: extra?.repo ?? undefined,
+      alias: extra?.alias ?? null,
     });
     return this.projectRepo.save(project);
   }
 
   async findByOwnerAndNumber(owner: string, projectNumber: number): Promise<Project | null> {
     return this.projectRepo.findOneBy({ owner, projectNumber });
+  }
+
+  async findByOwnerAndRepo(owner: string, repo: string): Promise<Project[]> {
+    return this.projectRepo.find({
+      where: { owner, repo },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async save(project: Project): Promise<Project> {
