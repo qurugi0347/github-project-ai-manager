@@ -13,6 +13,7 @@ interface KanbanBoardProps {
   onMilestoneFilterChange?: (milestoneId: number | null) => void;
   onTaskClick: (task: Task) => void;
   onStatusChange: (taskId: number, newStatus: string) => void;
+  prefix?: string | null;
 }
 
 type SortOption = 'newest' | 'oldest' | 'priority' | 'title';
@@ -43,7 +44,7 @@ function sortTasks(tasks: Task[], option: SortOption): Task[] {
   }
 }
 
-export default function KanbanBoard({ tasks, columns, milestones, activeMilestoneId, onMilestoneFilterChange, onTaskClick, onStatusChange }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, columns, milestones, activeMilestoneId, onMilestoneFilterChange, onTaskClick, onStatusChange, prefix }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const sensors = useSensors(
@@ -146,11 +147,12 @@ export default function KanbanBoard({ tasks, columns, milestones, activeMileston
             title={column}
             tasks={grouped[column]}
             onTaskClick={onTaskClick}
+            prefix={prefix}
           />
         ))}
       </div>
       <DragOverlay>
-        {activeTask ? <TaskCard task={activeTask} onClick={() => {}} isDragOverlay /> : null}
+        {activeTask ? <TaskCard task={activeTask} onClick={() => {}} isDragOverlay prefix={prefix} /> : null}
       </DragOverlay>
     </DndContext>
   );

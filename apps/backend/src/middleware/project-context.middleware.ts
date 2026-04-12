@@ -1,12 +1,13 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
+import { RequestWithProject } from '../types/request';
 import { ProjectService } from '../modules/project/project.service';
 
 @Injectable()
 export class ProjectContextMiddleware implements NestMiddleware {
   constructor(private readonly projectService: ProjectService) {}
 
-  async use(req: Request, res: Response, next: NextFunction) {
+  async use(req: RequestWithProject, res: Response, next: NextFunction) {
     const owner = req.headers['x-gpm-owner'] as string;
     const projectNumber = Number(req.headers['x-gpm-project-number']);
     const alias = req.headers['x-gpm-project-alias'] as string | undefined;
@@ -29,7 +30,7 @@ export class ProjectContextMiddleware implements NestMiddleware {
       await this.projectService.save(project);
     }
 
-    (req as any).project = project;
+    req.project = project;
     next();
   }
 }

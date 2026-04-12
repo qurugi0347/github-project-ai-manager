@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiGet, apiPost, apiPatch } from '@/api/client';
-import type { Project, Task, Milestone } from '@/types';
+import type { Task, Milestone } from '@/types';
+import { useProjectPageData } from '@/hooks/useProjectQueries';
+import { useAutoSync } from '@/hooks/useAutoSync';
+import { useTaskStatusMutation } from '@/hooks/useTaskStatusMutation';
+import AutoSyncIndicator from '@/components/AutoSyncIndicator';
 import ProjectTabs from '@/components/ProjectTabs';
 import MilestoneSummary from '@/components/MilestoneSummary';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -9,78 +12,40 @@ import TaskDetailPanel from '@/components/TaskDetailPanel';
 import MilestoneDetailPanel from '@/components/MilestoneDetailPanel';
 
 export default function RepositoryProjectPage() {
-  const { owner, repo, projectId } = useParams<{ owner: string; repo: string; projectId: string }>();
+  const { owner, repo, projectId: projectIdParam } = useParams<{ owner: string; repo: string; projectId: string }>();
+  const projectId = Number(projectIdParam);
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 서버 상태 (React Query)
+  const { project, tasks, milestones, statusColumns, isLoading, error } =
+    useProjectPageData(projectId);
+  const { syncMutation, ...autoSync } = useAutoSync(projectId);
+  const statusMutation = useTaskStatusMutation(projectId);
+
+  // UI 상태 (useState)
   const [toast, setToast] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [statusColumns, setStatusColumns] = useState<string[]>([]);
   const [milestoneFilter, setMilestoneFilter] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
-  useEffect(() => {
-    if (!projectId) return;
+  if (!projectIdParam || Number.isNaN(projectId)) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-red-500">Invalid project ID</p>
+      </div>
+    );
+  }
 
-    const load = async () => {
-      try {
-        const [projectData, taskData, milestoneData] = await Promise.all([
-          apiGet<Project>(`/projects/${projectId}`),
-          apiGet<Task[]>(`/tasks?projectId=${projectId}`),
-          apiGet<Milestone[]>(`/milestones?projectId=${projectId}`),
-        ]);
-        setProject(projectData);
-        setTasks(taskData);
-        setMilestones(milestoneData);
-
-        const columns = await apiGet<string[]>(`/sync/status-options?projectId=${projectId}`).catch(() => [] as string[]);
-        setStatusColumns(columns);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load project');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [projectId]);
-
-  const handleSync = async () => {
-    if (!projectId || syncing) return;
-
-    setSyncing(true);
-    try {
-      await apiPost(`/sync/pull?projectId=${projectId}`, {});
-      const [taskData, milestoneData, columns] = await Promise.all([
-        apiGet<Task[]>(`/tasks?projectId=${projectId}`),
-        apiGet<Milestone[]>(`/milestones?projectId=${projectId}`),
-        apiGet<string[]>(`/sync/status-options?projectId=${projectId}&force=true`),
-      ]);
-      setTasks(taskData);
-      setMilestones(milestoneData);
-      setStatusColumns(columns);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync failed');
-    } finally {
-      setSyncing(false);
-    }
+  // 이벤트 핸들러
+  const handleSync = () => {
+    if (syncMutation.isPending) return;
+    syncMutation.mutate();
   };
 
   const handleStatusChange = (taskId: number, newStatus: string) => {
-    const previousTasks = tasks;
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
+    statusMutation.mutate(
+      { taskId, status: newStatus },
+      { onError: (err) => setToast(`Failed to update status: ${err.message}`) },
     );
-
-    apiPatch(`/tasks/${taskId}?projectId=${projectId}`, { status: newStatus })
-      .catch((err) => {
-        setTasks(previousTasks);
-        setToast(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      });
   };
 
   const handleMilestoneClick = (milestone: Milestone) => {
@@ -96,7 +61,7 @@ export default function RepositoryProjectPage() {
     setSelectedTask(task);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-gray-500">Loading...</p>
@@ -109,7 +74,7 @@ export default function RepositoryProjectPage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
           <p className="text-red-500 mb-2">Failed to load project</p>
-          <p className="text-gray-400 text-sm">{error}</p>
+          <p className="text-gray-400 text-sm">{error.message ?? 'Unknown error'}</p>
         </div>
       </div>
     );
@@ -140,13 +105,21 @@ export default function RepositoryProjectPage() {
             Project #{project?.projectNumber}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSync}
-          disabled={syncing}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {syncing ? (
+        <div className="flex items-center gap-3">
+          <AutoSyncIndicator
+            isPolling={autoSync.isPolling}
+            isSyncing={autoSync.isSyncing}
+            lastSyncAt={autoSync.lastSyncAt}
+            nextSyncIn={autoSync.nextSyncIn}
+            hasError={autoSync.hasError}
+          />
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncMutation.isPending || autoSync.isSyncing}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+          {syncMutation.isPending ? (
             <>
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -162,7 +135,8 @@ export default function RepositoryProjectPage() {
               Sync
             </>
           )}
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Milestone Summary */}
@@ -186,11 +160,12 @@ export default function RepositoryProjectPage() {
           onMilestoneFilterChange={setMilestoneFilter}
           onTaskClick={handleTaskClick}
           onStatusChange={handleStatusChange}
+          prefix={project?.prefix}
         />
       </div>
 
       {/* Detail Panels */}
-      <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} />
+      <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTask(null)} prefix={project?.prefix} />
       <MilestoneDetailPanel
         milestone={selectedMilestone}
         tasks={tasks}

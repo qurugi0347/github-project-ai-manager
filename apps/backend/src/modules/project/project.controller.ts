@@ -6,7 +6,9 @@ import {
   ParseIntPipe,
   NotFoundException,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
+import { RequestWithProject } from '../../types/request';
 import { ProjectService } from './project.service';
 
 @Controller('projects')
@@ -27,6 +29,13 @@ export class ProjectController {
       throw new BadRequestException('Both "owner" and "repo" query parameters are required');
     }
     return this.projectService.findByOwnerAndRepo(owner, repo);
+  }
+
+  @Get('current')
+  async findCurrent(@Req() req: RequestWithProject) {
+    const project = req.project;
+    if (!project) throw new NotFoundException('No project context. Send X-GPM-Owner and X-GPM-Project-Number headers.');
+    return project;
   }
 
   @Get(':id')

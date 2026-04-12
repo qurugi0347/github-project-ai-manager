@@ -7,6 +7,7 @@ import { normalizeAssignees } from '@/types';
 interface TaskDetailPanelProps {
   task: Task | null;
   onClose: () => void;
+  prefix?: string | null;
 }
 
 const statusBadgeColor: Record<string, string> = {
@@ -32,7 +33,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
+export default function TaskDetailPanel({ task, onClose, prefix }: TaskDetailPanelProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -68,7 +69,12 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400 font-mono">#{task.id}</span>
+            <span className="text-sm text-gray-400 font-mono">
+              {prefix ? `${prefix}-${task.id}` : `#${task.id}`}
+            </span>
+            {task.githubNumber && (
+              <span className="text-sm text-gray-500 font-mono">#{task.githubNumber}</span>
+            )}
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${contentTypeClass}`}>
               {task.contentType}
             </span>

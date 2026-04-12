@@ -53,9 +53,12 @@ taskCmd
   .option('--limit <n>', 'Limit results', '20')
   .action(async (options) => {
     try {
-      const tasks = await apiRequest<any[]>('/tasks', {
-        projectAlias: program.opts().project,
-      });
+      const projectAlias = program.opts().project;
+      const [tasks, project] = await Promise.all([
+        apiRequest<any[]>('/tasks', { projectAlias }),
+        apiRequest<any>('/projects/current', { projectAlias }).catch(() => null),
+      ]);
+      const prefix = project?.prefix;
       if (options.json) {
         console.log(JSON.stringify(tasks, null, 2));
       } else {
@@ -63,10 +66,12 @@ taskCmd
           console.log('No tasks found.');
           return;
         }
-        console.log('ID\tStatus\t\tTitle');
-        console.log('--\t------\t\t-----');
+        console.log('ID\t\tGH#\tStatus\t\tTitle');
+        console.log('--\t\t---\t------\t\t-----');
         tasks.slice(0, Number(options.limit)).forEach((t: any) => {
-          console.log(`${t.id}\t${t.status}\t\t${t.title}`);
+          const id = prefix ? `${prefix}-${t.id}` : `#${t.id}`;
+          const gh = t.githubNumber ? `#${t.githubNumber}` : '-';
+          console.log(`${id}\t\t${gh}\t${t.status}\t\t${t.title}`);
         });
       }
     } catch (err) {
@@ -81,13 +86,18 @@ taskCmd
   .option('--json', 'Output as JSON')
   .action(async (id, options) => {
     try {
-      const task = await apiRequest<any>(`/tasks/${id}`, {
-        projectAlias: program.opts().project,
-      });
+      const projectAlias = program.opts().project;
+      const [task, project] = await Promise.all([
+        apiRequest<any>(`/tasks/${id}`, { projectAlias }),
+        apiRequest<any>('/projects/current', { projectAlias }).catch(() => null),
+      ]);
+      const prefix = project?.prefix;
       if (options.json) {
         console.log(JSON.stringify(task, null, 2));
       } else {
-        console.log(`#${task.id} ${task.title}`);
+        const idDisplay = prefix ? `${prefix}-${task.id}` : `#${task.id}`;
+        const ghDisplay = task.githubNumber ? ` (GitHub #${task.githubNumber})` : '';
+        console.log(`${idDisplay}${ghDisplay} ${task.title}`);
         console.log(`Status: ${task.status}`);
         console.log(`Type: ${task.contentType}`);
         if (task.body) console.log(`\n${task.body}`);
@@ -114,7 +124,10 @@ taskCmd
       if (options.json) {
         console.log(JSON.stringify(task, null, 2));
       } else {
-        console.log(`✓ Task #${task.id} created: ${task.title}`);
+        const project = await apiRequest<any>('/projects/current').catch(() => null);
+        const prefix = project?.prefix;
+        const idDisplay = prefix ? `${prefix}-${task.id}` : `#${task.id}`;
+        console.log(`✓ Task ${idDisplay} created: ${task.title}`);
       }
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
@@ -140,7 +153,10 @@ taskCmd
       if (json) {
         console.log(JSON.stringify(task, null, 2));
       } else {
-        console.log(`✓ Task #${task.id} updated`);
+        const project = await apiRequest<any>('/projects/current').catch(() => null);
+        const prefix = project?.prefix;
+        const idDisplay = prefix ? `${prefix}-${task.id}` : `#${task.id}`;
+        console.log(`✓ Task ${idDisplay} updated`);
       }
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
@@ -153,11 +169,15 @@ taskCmd
   .description('Delete a task')
   .action(async (id) => {
     try {
+      const projectAlias = program.opts().project;
       await apiRequest(`/tasks/${id}`, {
         method: 'DELETE',
-        projectAlias: program.opts().project,
+        projectAlias,
       });
-      console.log(`✓ Task #${id} deleted`);
+      const project = await apiRequest<any>('/projects/current', { projectAlias }).catch(() => null);
+      const prefix = project?.prefix;
+      const idDisplay = prefix ? `${prefix}-${id}` : `#${id}`;
+      console.log(`✓ Task ${idDisplay} deleted`);
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);
@@ -169,12 +189,15 @@ taskCmd
   .description('Quick status change')
   .action(async (id, status) => {
     try {
-      await apiRequest(`/tasks/${id}`, {
+      const task = await apiRequest<any>(`/tasks/${id}`, {
         method: 'PATCH',
         body: { status },
         projectAlias: program.opts().project,
       });
-      console.log(`✓ Task #${id} status → "${status}"`);
+      const project = await apiRequest<any>('/projects/current').catch(() => null);
+      const prefix = project?.prefix;
+      const idDisplay = prefix ? `${prefix}-${task.id}` : `#${task.id}`;
+      console.log(`✓ Task ${idDisplay} status → "${status}"`);
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
       process.exit(1);

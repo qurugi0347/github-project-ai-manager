@@ -45,6 +45,9 @@ export class Project {
   @Column({ name: 'status_options_fetched_at', type: 'datetime', nullable: true })
   statusOptionsFetchedAt: Date | null;
 
+  @Column({ type: 'text', unique: true, nullable: true })
+  prefix: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

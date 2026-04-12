@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiGet } from '@/api/client';
+import { useProjectListQuery } from '@/hooks/useProjectListQuery';
 import type { Project } from '@/types';
 
 interface RepoGroup {
@@ -27,18 +26,9 @@ function groupByRepo(projects: Project[]): RepoGroup[] {
 }
 
 export default function RepositoryListPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projects = [], isLoading, error } = useProjectListQuery();
 
-  useEffect(() => {
-    apiGet<Project[]>('/projects')
-      .then(setProjects)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-gray-500">Loading...</p>
@@ -51,7 +41,7 @@ export default function RepositoryListPage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
           <p className="text-red-500 mb-2">Failed to load projects</p>
-          <p className="text-gray-400 text-sm">{error}</p>
+          <p className="text-gray-400 text-sm">{error?.message ?? 'Unknown error'}</p>
         </div>
       </div>
     );
