@@ -4,6 +4,7 @@ import { AppService } from '@gpm/backend/dist/app.service';
 import { runInit } from './commands/init';
 import { runServer } from './commands/server';
 import { runHooksList, runHooksInstall, runHooksRemove } from './commands/hooks';
+import { registerProjectCommand } from './commands/project';
 import { apiRequest } from './utils/api-client';
 
 const program = new Command();
@@ -11,7 +12,8 @@ const program = new Command();
 program
   .name('gpm')
   .description('GitHub Project Manager - CLI for managing GitHub Projects')
-  .version('0.0.1');
+  .version('0.0.1')
+  .option('-p, --project <alias>', 'Target project alias from .gpmrc');
 
 program
   .command('health')
@@ -50,7 +52,9 @@ taskCmd
   .option('--limit <n>', 'Limit results', '20')
   .action(async (options) => {
     try {
-      const tasks = await apiRequest<any[]>('/tasks');
+      const tasks = await apiRequest<any[]>('/tasks', {
+        projectAlias: program.opts().project,
+      });
       if (options.json) {
         console.log(JSON.stringify(tasks, null, 2));
       } else {
@@ -76,7 +80,9 @@ taskCmd
   .option('--json', 'Output as JSON')
   .action(async (id, options) => {
     try {
-      const task = await apiRequest<any>(`/tasks/${id}`);
+      const task = await apiRequest<any>(`/tasks/${id}`, {
+        projectAlias: program.opts().project,
+      });
       if (options.json) {
         console.log(JSON.stringify(task, null, 2));
       } else {
@@ -102,6 +108,7 @@ taskCmd
       const task = await apiRequest<any>('/tasks', {
         method: 'POST',
         body: { title, body: options.body, status: options.status },
+        projectAlias: program.opts().project,
       });
       if (options.json) {
         console.log(JSON.stringify(task, null, 2));
@@ -127,6 +134,7 @@ taskCmd
       const task = await apiRequest<any>(`/tasks/${id}`, {
         method: 'PATCH',
         body: data,
+        projectAlias: program.opts().project,
       });
       if (json) {
         console.log(JSON.stringify(task, null, 2));
@@ -144,7 +152,10 @@ taskCmd
   .description('Delete a task')
   .action(async (id) => {
     try {
-      await apiRequest(`/tasks/${id}`, { method: 'DELETE' });
+      await apiRequest(`/tasks/${id}`, {
+        method: 'DELETE',
+        projectAlias: program.opts().project,
+      });
       console.log(`✓ Task #${id} deleted`);
     } catch (err) {
       console.error(`✗ ${(err as Error).message}`);
@@ -160,6 +171,7 @@ taskCmd
       await apiRequest(`/tasks/${id}`, {
         method: 'PATCH',
         body: { status },
+        projectAlias: program.opts().project,
       });
       console.log(`✓ Task #${id} status → "${status}"`);
     } catch (err) {
@@ -199,7 +211,10 @@ const syncCmd = program
   .action(async () => {
     try {
       console.log('Syncing with GitHub Project...');
-      const result = await apiRequest<any>('/sync/pull', { method: 'POST' });
+      const result = await apiRequest<any>('/sync/pull', {
+        method: 'POST',
+        projectAlias: program.opts().project,
+      });
       console.log(`✓ Sync completed: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`);
       console.log(`  Total items from GitHub: ${result.pulled}`);
     } catch (err) {
@@ -215,6 +230,9 @@ syncCmd
   .action(() => {
     console.log('gpm sync status - not yet implemented');
   });
+
+// --- Project ---
+registerProjectCommand(program);
 
 // --- Server ---
 program
